@@ -219,9 +219,10 @@ This is a sample Typst document. Start editing to see your changes in real-time!
 
       // Add page separator and styling
       if (i > 0) {
-        result += '<div style="height: 20px; background: #f3f4f6; margin: 10px 0; border-radius: 4px;"></div>';
+        result +=
+          '<div style="height: 20px; background: #f3f4f6; margin: 10px 0; border-radius: 4px;"></div>';
       }
-      
+
       result += `<div style="display: flex; justify-content: center; margin-bottom: 20px;">
         ${pageSvg.outerHTML}
       </div>`;
@@ -405,29 +406,30 @@ ${cleanText}`;
       }
     });
 
-    const createEditorState = () => EditorState.create({
-      doc: documentContent,
-      extensions: [
-        lineNumbers(),
-        keymap.of([
-          ...historyKeymap,
-          ...defaultKeymap,
-          indentWithTab,
-          {
-            key: "Mod-z",
-            run: undo,
-          },
-          {
-            key: "Mod-Shift-z",
-            run: redo,
-          },
-        ]),
-        history(),
-        typstSyntax(),
-        updateListener,
-        createEditorTheme(),
-      ],
-    });
+    const createEditorState = () =>
+      EditorState.create({
+        doc: documentContent,
+        extensions: [
+          lineNumbers(),
+          keymap.of([
+            ...historyKeymap,
+            ...defaultKeymap,
+            indentWithTab,
+            {
+              key: "Mod-z",
+              run: undo,
+            },
+            {
+              key: "Mod-Shift-z",
+              run: redo,
+            },
+          ]),
+          history(),
+          typstSyntax(),
+          updateListener,
+          createEditorTheme(),
+        ],
+      });
 
     const state = createEditorState();
 
@@ -451,10 +453,10 @@ ${cleanText}`;
       // Recreate the editor view with new theme
       const currentDoc = editorViewRef.current.state.doc.toString();
       const currentView = editorViewRef.current;
-      
+
       // Destroy current view
       currentView.destroy();
-      
+
       // Create new view with updated theme
       const updateListener = EditorView.updateListener.of((update) => {
         if (update.docChanged) {
@@ -498,8 +500,6 @@ ${cleanText}`;
     }
   }, [theme, createEditorTheme, debouncedCompile]);
 
-
-
   // Load initial content into editor and trigger initial compilation
   useEffect(() => {
     if (
@@ -518,7 +518,7 @@ ${cleanText}`;
           },
         });
         initialContentLoadedRef.current = true;
-        
+
         // Trigger initial compilation after content is loaded
         if (isTypstReady && documentContent.trim()) {
           debouncedCompile(documentContent);
@@ -551,7 +551,7 @@ ${cleanText}`;
 
     try {
       const source = editorViewRef.current?.state.doc.toString() || "";
-      
+
       // Ensure proper Typst structure for PDF export
       let processedSource = source.trim();
       if (
@@ -563,7 +563,7 @@ ${cleanText}`;
 
 ${processedSource}`;
       }
-      
+
       const data = await $typst.pdf({ mainContent: processedSource });
       const blob = new Blob([data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
