@@ -124,10 +124,6 @@ export default function Login() {
     }
   };
 
-  const handleInputBlur = () => {
-    // Handle blur if needed
-  };
-
   const getMessageClasses = () => {
     const baseClasses = "text-sm font-medium p-3 rounded-md";
     switch (messageType) {
@@ -272,7 +268,6 @@ export default function Login() {
                       value={email}
                       onChange={handleEmailChange}
                       onFocus={handleInputFocus}
-                      onBlur={handleInputBlur}
                       placeholder="your.name@infocusp.com"
                       className="pl-10 h-12 text-base"
                       disabled={status === "busy"}

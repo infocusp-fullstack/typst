@@ -11,7 +11,7 @@ import {
   saveProjectFile,
   fetchUserProjects,
 } from "@/lib/projectService";
-import { EditorView, keymap, lineNumbers } from "@codemirror/view";
+import { EditorView, keymap, lineNumbers, ViewUpdate } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import {
   history,
@@ -61,8 +61,12 @@ export default function TypstEditor({ projectId }: EditorProps) {
   const hasCompiledOnceRef = useRef(false);
   const isEditorInitializedRef = useRef(false);
   const initialContentLoadedRef = useRef(false);
+  const isInitialLoadRef = useRef(false);
 
   const loadProjectData = useCallback(async () => {
+    if (isInitialLoadRef.current) return;
+    isInitialLoadRef.current = true;
+
     try {
       setIsLoading(true);
 
@@ -77,31 +81,35 @@ export default function TypstEditor({ projectId }: EditorProps) {
       setTypPath(project.typ_path);
 
       const content = await loadProjectFile(project.typ_path);
+      setDocumentContent(content);
 
-      // If content is empty or very short, provide a default template
-      if (!content || content.trim().length < 10) {
-        const defaultContent = `#set page(width: 210mm, height: 297mm)
-#set text(font: "New Computer Modern", size: 11pt)
-
-= My Document
-#lorem(100)
-
-This is a sample Typst document. Start editing to see your changes in real-time!`;
-        setDocumentContent(defaultContent);
-      } else {
-        setDocumentContent(content);
+      // Update editor content
+      if (editorViewRef.current) {
+        editorViewRef.current.dispatch({
+          changes: {
+            from: 0,
+            to: editorViewRef.current.state.doc.length,
+            insert: content,
+          },
+        });
       }
 
       setLastSaved(new Date(project.updated_at));
       setHasUnsavedChanges(false);
+
+      // Only compile if Typst is ready
+      if (isTypstReady && content.trim()) {
+        debouncedCompile(content);
+      }
     } catch {
       alert("Failed to load project. Redirecting to dashboard.");
       router.push("/dashboard");
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, router]);
+  }, [projectId, isTypstReady]);
 
+  // Save function
   const saveDocument = useCallback(async () => {
     if (!documentContent.trim() || !typPath || isSaving) return;
 
@@ -118,6 +126,7 @@ This is a sample Typst document. Start editing to see your changes in real-time!
     }
   }, [documentContent, typPath, projectId, isSaving]);
 
+  // Auto-save function
   const autoSave = useCallback(async () => {
     if (hasUnsavedChanges && !isSaving && documentContent.trim() && typPath) {
       await saveDocument();
@@ -127,7 +136,7 @@ This is a sample Typst document. Start editing to see your changes in real-time!
   const handleBackToDashboard = () => {
     if (hasUnsavedChanges) {
       const shouldSave = confirm(
-        "You have unsaved changes. Do you want to save before leaving?",
+        "You have unsaved changes. Do you want to save before leaving?"
       );
       if (shouldSave) {
         saveDocument().then(() => {
@@ -139,8 +148,11 @@ This is a sample Typst document. Start editing to see your changes in real-time!
     router.push("/dashboard");
   };
 
+  // Keyboard shortcuts
   useEffect(() => {
+    console.log("useEffect keydown");
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+S / Cmd+S to save
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         saveDocument();
@@ -151,7 +163,9 @@ This is a sample Typst document. Start editing to see your changes in real-time!
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [saveDocument]);
 
+  // Auto-save every 60 seconds
   useEffect(() => {
+    console.log("useEffect auto-save");
     clearTimeout(autoSaveTimerRef.current);
 
     if (hasUnsavedChanges) {
@@ -161,13 +175,15 @@ This is a sample Typst document. Start editing to see your changes in real-time!
     return () => clearTimeout(autoSaveTimerRef.current);
   }, [hasUnsavedChanges, autoSave]);
 
+  // Load project data on mount
   useEffect(() => {
-    if (projectId && projectId !== "new") {
+    console.log("useEffect project data on mount");
+    if (projectId && projectId !== "new" && isTypstReady) {
       loadProjectData();
-    } else {
+    } else if (projectId === "new") {
       setIsLoading(false);
     }
-  }, [projectId, loadProjectData]);
+  }, [projectId, isTypstReady, loadProjectData]);
 
   const analyzePageRequirements = (totalHeight: number): PageAnalysis => {
     const STANDARD_PAGES = [
@@ -177,20 +193,35 @@ This is a sample Typst document. Start editing to see your changes in real-time!
     ];
 
     for (const page of STANDARD_PAGES) {
-      if (totalHeight <= page.height) {
+      const singlePageTolerance = page.height * 0.2;
+      if (totalHeight <= page.height + singlePageTolerance) {
         return {
           pages: 1,
           pageHeight: page.height,
-          reason: `Fits on one ${page.name} page`,
+          reason: `Content fits in single ${page.name} page`,
         };
       }
     }
 
-    const pages = Math.ceil(totalHeight / 841.89);
+    for (const page of STANDARD_PAGES) {
+      const possiblePages = Math.ceil(totalHeight / page.height);
+      const lastPageHeight = totalHeight - (possiblePages - 1) * page.height;
+      const minLastPageHeight = page.height * 0.3;
+
+      if (lastPageHeight >= minLastPageHeight) {
+        return {
+          pages: possiblePages,
+          pageHeight: page.height,
+          reason: `${possiblePages} ${page.name} pages`,
+        };
+      }
+    }
+
+    const adaptiveHeight = totalHeight / 2;
     return {
-      pages,
-      pageHeight: 841.89,
-      reason: `Requires ${pages} A4 pages`,
+      pages: 2,
+      pageHeight: adaptiveHeight,
+      reason: `Adaptive sizing`,
     };
   };
 
@@ -200,119 +231,102 @@ This is a sample Typst document. Start editing to see your changes in real-time!
     y: number,
     width: number,
     totalHeight: number,
-    pageHeight: number,
+    pageHeight: number
   ): string => {
-    const pages = Math.ceil(totalHeight / pageHeight);
-    let result = "";
+    const numPages = Math.ceil(totalHeight / pageHeight);
+    let html = "";
 
-    for (let i = 0; i < pages; i++) {
-      const pageY = y + i * pageHeight;
-      const currentHeight = Math.min(pageHeight, totalHeight - i * pageHeight);
+    for (let i = 0; i < numPages; i++) {
+      const startY = i * pageHeight;
+      const endY = Math.min(startY + pageHeight, totalHeight);
+      const currentPageHeight = endY - startY;
 
-      const pageSvg = svgElement.cloneNode(true) as SVGElement;
-      pageSvg.setAttribute(
-        "viewBox",
-        `${x} ${pageY} ${width} ${currentHeight}`,
-      );
-      pageSvg.setAttribute("width", width.toString());
-      pageSvg.setAttribute("height", currentHeight.toString());
-
-      // Add page separator and styling
-      if (i > 0) {
-        result += '<div style="height: 20px; background: #f3f4f6; margin: 10px 0; border-radius: 4px;"></div>';
-      }
-      
-      result += `<div style="display: flex; justify-content: center; margin-bottom: 20px;">
-        ${pageSvg.outerHTML}
-      </div>`;
+      html += `
+        <div class="page-wrapper" data-page="${i + 1}">
+          <div class="svg-page">
+            <svg viewBox="${x} ${startY} ${width} ${currentPageHeight}"
+                 width="100%" 
+                 height="${currentPageHeight}pt"
+                 xmlns="http://www.w3.org/2000/svg"
+                 style="background: white; display: block;">
+              ${svgElement.innerHTML}
+            </svg>
+          </div>
+          <div class="page-info">
+            Page ${i + 1} of ${numPages}
+          </div>
+        </div>`;
     }
 
-    return result;
+    return `<div class="pages-container">${html}</div>`;
   };
 
   const compileAndRender = useCallback(
-    async (text: string) => {
+    async (src: string) => {
       if (!isTypstReady || !$typst || isCompiling) return;
 
-      try {
-        setIsCompiling(true);
-        setCompilationError(null);
+      setIsCompiling(true);
+      setCompilationError(null);
+      setPreviewContent(
+        '<div class="placeholder"><div>⌛ Compiling...</div></div>'
+      );
 
-        // Ensure text is properly formatted and clean
-        const cleanText = text.trim();
-        if (!cleanText) {
+      try {
+        const svg = await $typst.svg({ mainContent: src });
+
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(svg, "image/svg+xml");
+        const svgElement = doc.querySelector("svg");
+
+        if (!svgElement) {
           setPreviewContent(
-            '<div class="placeholder"><div>Start typing to see your document</div></div>',
+            '<div class="placeholder"><div>Start typing to see your document</div></div>'
           );
           return;
         }
 
-        // Add basic Typst structure if not present
-        let processedText = cleanText;
-        if (
-          !cleanText.includes("= document(") &&
-          !cleanText.includes("= page(")
-        ) {
-          processedText = `#set page(width: 210mm, height: 297mm)
-#set text(font: "New Computer Modern", size: 11pt)
-
-${cleanText}`;
+        const viewBox = svgElement.getAttribute("viewBox");
+        if (!viewBox) {
+          setPreviewContent(
+            `<div class="pages-container"><div class="page-wrapper"><div class="svg-page">${svg}</div></div></div>`
+          );
+          return;
         }
 
-        const svgData = await $typst.svg({ mainContent: processedText });
+        const [x, y, svgWidth, svgHeight] = viewBox.split(" ").map(Number);
+        const pageAnalysis = analyzePageRequirements(svgHeight);
 
-        // Check if the result is actually SVG
-        if (!svgData.includes("<svg")) {
-          throw new Error("Invalid SVG output from compiler");
-        }
-
-        // Parse SVG to get dimensions
-        const parser = new DOMParser();
-        const svgDoc = parser.parseFromString(svgData, "image/svg+xml");
-        const svgElement = svgDoc.documentElement as unknown as SVGElement;
-
-        if (svgElement) {
-          const viewBox = svgElement.getAttribute("viewBox");
-          if (viewBox) {
-            const [, , width, height] = viewBox.split(" ").map(Number);
-            const analysis = analyzePageRequirements(height);
-
-            if (analysis.pages === 1) {
-              setPreviewContent(svgData);
-            } else {
-              const multiPageSvg = createMultiplePages(
-                svgElement,
-                0,
-                0,
-                width,
-                height,
-                analysis.pageHeight,
-              );
-              setPreviewContent(multiPageSvg);
-            }
-          } else {
-            setPreviewContent(svgData);
-          }
+        if (pageAnalysis.pages > 1) {
+          const multiPageHtml = createMultiplePages(
+            svgElement,
+            x,
+            y,
+            svgWidth,
+            svgHeight,
+            pageAnalysis.pageHeight
+          );
+          setPreviewContent(multiPageHtml);
         } else {
-          setPreviewContent(svgData);
+          setPreviewContent(`
+          <div class="pages-container">
+            <div class="page-wrapper">
+              <div class="svg-page">
+                ${svg}
+              </div>
+            </div>
+          </div>
+        `);
         }
-      } catch (error) {
-        console.error("Compilation error:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Compilation failed";
-        setCompilationError(errorMessage);
+      } catch (err) {
         setPreviewContent(
-          `<div class="error">
-            <div class="error-header">Compilation Error</div>
-            <div class="error-message">${errorMessage}</div>
-            <div class="error-hint">Please check your Typst syntax and try again.</div>
-          </div>`,
+          `<div class="placeholder"><div style="color: #ef4444;">❌ ${err}</div></div>`
         );
+        console.error(err);
       } finally {
         setIsCompiling(false);
       }
     },
-    [isTypstReady, $typst, isCompiling],
+    [isTypstReady, $typst, isCompiling]
   );
 
   const debouncedCompile = useCallback(
@@ -322,25 +336,20 @@ ${cleanText}`;
       compileTimerRef.current = window.setTimeout(() => {
         const clean = text.trim();
 
-        if (clean.length < 5 && !hasCompiledOnceRef.current) {
+        // If there's no content, show placeholder
+        if (!clean.length) {
           setPreviewContent(
-            '<div class="placeholder"><div>Start typing to see your document</div></div>',
+            '<div class="placeholder"><div>Start typing to see your document</div></div>'
           );
           return;
         }
 
+        // Always compile if there's content (removed the 10-character limitation)
         hasCompiledOnceRef.current = true;
-
-        if (clean.length) {
-          compileAndRender(clean);
-        } else {
-          setPreviewContent(
-            '<div class="placeholder"><div>Start typing to see your document</div></div>',
-          );
-        }
-      }, 300); // Reduced debounce time for better responsiveness
+        compileAndRender(clean);
+      }, 300);
     },
-    [compileAndRender],
+    [compileAndRender]
   );
 
   // Create theme-aware editor styling
@@ -393,6 +402,7 @@ ${cleanText}`;
 
   // Initialize editor only once
   useEffect(() => {
+    console.log("useEffect init editor");
     if (!editorRef.current || isLoading || isEditorInitializedRef.current)
       return;
 
@@ -405,7 +415,7 @@ ${cleanText}`;
       }
     });
 
-    const createEditorState = () => EditorState.create({
+    const state = EditorState.create({
       doc: documentContent,
       extensions: [
         lineNumbers(),
@@ -429,8 +439,6 @@ ${cleanText}`;
       ],
     });
 
-    const state = createEditorState();
-
     const view = new EditorView({
       state,
       parent: editorRef.current,
@@ -443,32 +451,37 @@ ${cleanText}`;
       view.destroy();
       isEditorInitializedRef.current = false;
     };
-  }, [isLoading, debouncedCompile, createEditorTheme]);
+  }, [isLoading, createEditorTheme]);
 
   // Update editor theme when theme changes
   useEffect(() => {
+    console.log("useEffect update theme");
     if (editorViewRef.current && isEditorInitializedRef.current) {
       // Recreate the editor view with new theme
       const currentDoc = editorViewRef.current.state.doc.toString();
       const currentView = editorViewRef.current;
-      
+
       // Destroy current view
       currentView.destroy();
-      
+
       // Create new view with updated theme
-      const updateListener = EditorView.updateListener.of((update) => {
-        if (update.docChanged) {
-          const newDoc = update.state.doc.toString();
-          setDocumentContent(newDoc);
-          setHasUnsavedChanges(true);
-          debouncedCompile(newDoc);
+      const updateListener = EditorView.updateListener.of(
+        (update: ViewUpdate) => {
+          if (update.docChanged) {
+            const newDoc = update.state.doc.toString();
+            setDocumentContent(newDoc);
+            setHasUnsavedChanges(true);
+            debouncedCompile(newDoc);
+          }
         }
-      });
+      );
 
       const newState = EditorState.create({
         doc: currentDoc,
         extensions: [
           lineNumbers(),
+          history(),
+          typstSyntax(),
           keymap.of([
             ...historyKeymap,
             ...defaultKeymap,
@@ -482,8 +495,6 @@ ${cleanText}`;
               run: redo,
             },
           ]),
-          history(),
-          typstSyntax(),
           updateListener,
           createEditorTheme(),
         ],
@@ -497,8 +508,6 @@ ${cleanText}`;
       editorViewRef.current = newView;
     }
   }, [theme, createEditorTheme, debouncedCompile]);
-
-
 
   // Load initial content into editor and trigger initial compilation
   useEffect(() => {
@@ -518,7 +527,7 @@ ${cleanText}`;
           },
         });
         initialContentLoadedRef.current = true;
-        
+
         // Trigger initial compilation after content is loaded
         if (isTypstReady && documentContent.trim()) {
           debouncedCompile(documentContent);
@@ -529,6 +538,8 @@ ${cleanText}`;
 
   // Cleanup timers on unmount
   useEffect(() => {
+    console.log("useEffect cleanup timers");
+
     return () => {
       if (compileTimerRef.current) {
         clearTimeout(compileTimerRef.current);
@@ -551,23 +562,11 @@ ${cleanText}`;
 
     try {
       const source = editorViewRef.current?.state.doc.toString() || "";
-      
-      // Ensure proper Typst structure for PDF export
-      let processedSource = source.trim();
-      if (
-        !processedSource.includes("= document(") &&
-        !processedSource.includes("= page(")
-      ) {
-        processedSource = `#set page(width: 210mm, height: 297mm)
-#set text(font: "New Computer Modern", size: 11pt)
-
-${processedSource}`;
-      }
-      
-      const data = await $typst.pdf({ mainContent: processedSource });
+      const data = await $typst.pdf({ mainContent: source });
       const blob = new Blob([data], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
 
+      // Use project title or extract name from content
       let filename = projectTitle || "typst-output";
       const match = source.match(/#let\s+name\s*=\s*"(.+?)"/);
       if (match) {
@@ -579,8 +578,8 @@ ${processedSource}`;
       a.download = `${filename}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error("PDF export error:", error);
+    } catch (err) {
+      console.error("Export failed", err);
       alert("Failed to export PDF. Please try again.");
     }
   };
@@ -673,7 +672,9 @@ ${processedSource}`;
         </div>
 
         {/* Preview */}
-        <div className="w-1/2 overflow-auto bg-background">
+        <div
+          className={`w-1/2 overflow-auto bg-background ${isCompiling ? "compiling" : ""}`}
+        >
           {isCompiling ? (
             <div className="flex flex-col items-center justify-center h-full gap-4">
               <Loading text="Compiling..." />

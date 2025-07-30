@@ -1,14 +1,19 @@
 "use client";
 
 import type React from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import { useRouter } from "next/navigation";
-import type { Session, User } from "@supabase/supabase-js";
+import type { User } from "@supabase/supabase-js";
 import { getBrowserClient } from "@/lib/supabaseClient";
 
 type AuthContextType = {
   user: User | null;
-  session: Session | null;
   isLoading: boolean;
   signInWithMagicLink: (email: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
@@ -19,18 +24,37 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasInitialSessionCheck, setHasInitialSessionCheck] = useState(false);
   const router = useRouter();
 
-  const getSupabase = () => {
+  // Initialize Supabase client only when needed
+  const getSupabase = useCallback(() => {
     try {
       return getBrowserClient();
-    } catch {
+    } catch (error) {
+      console.error("Failed to initialize Supabase client:", error);
       return null;
     }
-  };
+  }, []);
+
+  const handleAuthStateChange = useCallback(
+    (event: string, session: any) => {
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+
+      if (hasInitialSessionCheck) {
+        if (event === "SIGNED_IN" && session?.user && !user) {
+          router.push("/dashboard");
+        }
+
+        if (event === "SIGNED_OUT") {
+          router.push("/login");
+        }
+      }
+    },
+    [hasInitialSessionCheck, router]
+  );
 
   useEffect(() => {
     const getSession = async () => {
@@ -42,10 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         const { data } = await supabase.auth.getSession();
-        setSession(data.session);
         setUser(data.session?.user ?? null);
         setHasInitialSessionCheck(true);
-      } catch {
+      } catch (error) {
+        console.error("Error getting session:", error);
+      } finally {
         setIsLoading(false);
       }
     };
@@ -58,21 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       const {
         data: { subscription },
-      } = supabase.auth.onAuthStateChange((event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-
-        if (hasInitialSessionCheck) {
-          if (event === "SIGNED_IN" && session?.user && !user) {
-            router.push("/dashboard");
-          }
-
-          if (event === "SIGNED_OUT") {
-            router.push("/login");
-          }
-        }
-      });
+      } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 
       return () => {
         subscription.unsubscribe();
@@ -80,35 +91,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       setIsLoading(false);
     }
-  }, [router, hasInitialSessionCheck, user]);
+  }, [getSupabase, handleAuthStateChange]);
 
-  const signInWithMagicLink = async (email: string) => {
-    try {
-      const supabase = getSupabase();
-      if (!supabase) {
-        return { error: new Error("Supabase client initialization failed") };
+  const signInWithMagicLink = useCallback(
+    async (email: string) => {
+      try {
+        const supabase = getSupabase();
+        if (!supabase) {
+          return { error: new Error("Supabase client initialization failed") };
+        }
+
+        // Validate email domain
+        if (!email.endsWith("@infocusp.com")) {
+          return {
+            error: new Error("Access restricted to Infocusp employees only"),
+          };
+        }
+
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+          },
+        });
+
+        return { error };
+      } catch (error) {
+        console.error("Magic link sign in error:", error);
+        return { error: error as Error };
       }
+    },
+    [getSupabase]
+  );
 
-      if (!email.endsWith("@infocusp.com")) {
-        return {
-          error: new Error("Access restricted to Infocusp employees only"),
-        };
-      }
-
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-        },
-      });
-
-      return { error };
-    } catch (error) {
-      return { error: error as Error };
-    }
-  };
-
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     try {
       const supabase = getSupabase();
       if (!supabase) {
@@ -124,26 +140,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       return { error };
     } catch (error) {
+      console.error("Google sign in error:", error);
       return { error: error as Error };
     }
-  };
+  }, [getSupabase]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       const supabase = getSupabase();
       if (supabase) {
         await supabase.auth.signOut();
       }
-    } catch {
-      // Handle sign out error silently
+      // No need to manually redirect here - the auth state change listener will handle it
+    } catch (error) {
+      console.error("Sign out error:", error);
     }
-  };
+  }, [getSupabase]);
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        session,
         isLoading,
         signInWithMagicLink,
         signInWithGoogle,
