@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@import "tailwindcss";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -42,6 +40,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Default (light) theme */
 :root {
   --radius: 0.65rem;
   --background: oklch(1 0 0);
@@ -123,7 +122,7 @@
   }
 }
 
-/* Editor specific styles */
+/* Editor container */
 .editor-container {
   @apply h-full w-full;
 }
@@ -140,6 +139,7 @@
   @apply outline-none;
 }
 
+/* Selection styling */
 .editor-container .cm-selectionBackground {
   @apply bg-primary/20;
 }
@@ -148,7 +148,6 @@
   @apply bg-primary/30;
 }
 
-/* Better contrast for readability */
 .cm-content {
   @apply text-foreground;
 }
@@ -157,7 +156,6 @@
   @apply bg-muted/50;
 }
 
-/* Improved selection colors */
 .cm-selectionBackground {
   @apply bg-primary/30;
 }
@@ -179,7 +177,6 @@
   @apply bg-accent/50;
 }
 
-/* Line numbers styling */
 .cm-lineNumbers {
   @apply text-muted-foreground;
 }
@@ -190,7 +187,7 @@
 
 /* Preview styles */
 .preview-container {
-  @apply bg-muted/50 overflow-y-auto overflow-x-hidden p-0 flex flex-col items-center;
+  @apply bg-gray-100 overflow-y-auto overflow-x-hidden p-0 flex flex-col items-center;
 }
 
 .preview-placeholder {
@@ -250,7 +247,7 @@
 
 /* Dark mode adjustments */
 .dark .svg-page {
-  @apply bg-card border border-border;
+  @apply bg-white border border-border;
 }
 
 .dark .svg-page svg {
@@ -258,7 +255,7 @@
 }
 
 .dark .pages-container {
-  @apply bg-background;
+  @apply bg-gray-100;
 }
 
 /* Responsive design */
@@ -294,31 +291,4 @@
   .page-info {
     @apply hidden;
   }
-}
-
-.typst-content {
-  @apply font-serif;
-}
-
-/* Prevent scroll jitter */
-.overflow-auto {
-  scroll-behavior: smooth;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Prevent layout shifts during compilation */
-.pages-container>* {
-  contain: layout style paint;
-  will-change: auto;
-}
-
-/* Smooth transitions for theme changes */
-* {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-}
-
-/* Prevent text selection during compilation */
-.compiling * {
-  user-select: none;
-  pointer-events: none;
 }

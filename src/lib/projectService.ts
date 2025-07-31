@@ -36,18 +36,25 @@ export async function fetchUserProjects(): Promise<Project[]> {
 export async function loadProjectFile(path: string): Promise<string> {
   try {
     const supabase = getBrowserClient();
-    const { data, error } = await supabase.storage
-      .from("user-projects")
-      .download(path);
 
-    if (error) {
-      if (error.message?.includes("not found")) {
-        return DEFAULT_CONTENT;
-      }
-      throw new Error(`Storage error: ${error.message}`);
+    const { data: signedUrlData, error: urlError } = await supabase.storage
+      .from("user-projects")
+      .createSignedUrl(path, 60); // 60 seconds
+
+    if (urlError || !signedUrlData?.signedUrl) {
+      throw new Error(`Signed URL error: ${urlError?.message}`);
     }
 
-    const content = await data.text();
+    const response = await fetch(signedUrlData.signedUrl, {
+      method: "GET",
+      cache: "no-store", // bypass browser cache
+    });
+
+    if (!response.ok) {
+      throw new Error(`Fetch failed: ${response.statusText}`);
+    }
+
+    const content = await response.text();
     return content;
   } catch {
     return DEFAULT_CONTENT;
@@ -57,7 +64,7 @@ export async function loadProjectFile(path: string): Promise<string> {
 /* ---------- Create new project with initial file ---------- */
 export async function createNewProject(
   userId: string,
-  title: string = "Untitled Document",
+  title: string = "Untitled Document"
 ): Promise<Project> {
   try {
     const projectId = crypto.randomUUID();
@@ -105,7 +112,7 @@ export async function createNewProject(
 export async function saveProjectFile(
   projectId: string,
   typPath: string,
-  code: string,
+  code: string
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();
@@ -141,7 +148,7 @@ export async function saveProjectFile(
 /* ---------- Delete project ---------- */
 export async function deleteProject(
   projectId: string,
-  typPath: string,
+  typPath: string
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();
