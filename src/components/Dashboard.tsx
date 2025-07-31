@@ -19,7 +19,6 @@ import {
   fetchUserProjects,
   createNewProject,
   deleteProject,
-  checkStorageAccess,
 } from "@/lib/projectService";
 import {
   Plus,
@@ -60,13 +59,13 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       setIsLoading(true);
       setError(null);
 
-      const storageOK = await checkStorageAccess();
-      if (!storageOK) {
-        setError(
-          "Storage access failed. Please check your Supabase configuration."
-        );
-        return;
-      }
+      // const storageOK = await checkStorageAccess();
+      // if (!storageOK) {
+      //   setError(
+      //     "Storage access failed. Please check your Supabase configuration."
+      //   );
+      //   return;
+      // }
 
       await loadProjects();
     } catch {
