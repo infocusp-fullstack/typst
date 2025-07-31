@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuth } from "@/context/auth-context";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/hooks/useTheme";
 import { Loader2, Moon, Sun } from "lucide-react";
 import showToast from "@/lib/toast";
 
@@ -20,7 +20,7 @@ import showToast from "@/lib/toast";
 export default function Login() {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signInWithMagicLink, signInWithGoogle } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const [googleLoading, setGoogleLoading] = useState(false);
 
   // const [email, setEmail] = useState("");
@@ -163,11 +163,7 @@ export default function Login() {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            >
+            <Button variant="ghost" size="icon" onClick={toggleTheme}>
               {theme === "dark" ? (
                 <Sun className="h-4 w-4" />
               ) : (

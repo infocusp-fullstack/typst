@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/hooks/useTheme";
 import { useTypst } from "@/hooks/useTypyst";
 import {
   fetchUserProjectById,
@@ -23,7 +23,7 @@ interface TypstEditorProps {
 
 export default function TypstEditor({ projectId }: TypstEditorProps) {
   const router = useRouter();
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const { $typst, isReady: isTypstReady } = useTypst();
 
   const contentRef = useRef("");
@@ -126,10 +126,6 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
     }
   };
 
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
-
   const handleBack = () => {
     if (hasChanges && confirm("Save before leaving?")) {
       handleSave().then(() => router.push("/dashboard"));
@@ -159,9 +155,9 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
         <div className="flex-1 flex overflow-hidden">
           <div className="w-1/2 border-r overflow-hidden h-full">
             <EditorPane
-              key={projectId}
+              key={`${projectId} - ${theme}`}
               initialContent={contentRef.current}
-              theme={theme || "light"}
+              theme={theme || "dark"}
               onChange={handleChange}
               onSave={handleSave}
             />

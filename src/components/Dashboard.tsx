@@ -33,7 +33,7 @@ import {
   FileText,
   Edit3,
 } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/hooks/useTheme";
 import { Project } from "@/types";
 
 interface DashboardProps {
@@ -50,7 +50,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
     null
   );
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
 
   const router = useRouter();
 
@@ -207,11 +207,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           <div className="flex-1" />
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-            >
+            <Button variant="ghost" size="icon" onClick={toggleTheme}>
               {theme === "dark" ? (
                 <Sun className="h-4 w-4" />
               ) : (
@@ -220,7 +216,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
             </Button>
 
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
+              <DropdownMenuTrigger className="cursor-pointer">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback>
                     {getUserName().charAt(0).toUpperCase()}
@@ -252,7 +248,10 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleSignOut}>
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="cursor-pointer"
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>

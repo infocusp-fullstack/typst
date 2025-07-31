@@ -1,4 +1,4 @@
-import { ThemeProvider } from "@/components/ThemeProvider";
+import { ThemeProvider } from "@/hooks/useTheme";
 import { AuthProvider } from "@/context/auth-context";
 import "./globals.css";
 
