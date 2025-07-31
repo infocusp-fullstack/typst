@@ -37,6 +37,7 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isCompiling, setIsCompiling] = useState(false);
+  const didInitRef = useRef(false);
 
   const compileTypst = useCallback(
     async (source: string) => {
@@ -63,20 +64,26 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
   );
 
   useEffect(() => {
+    if (didInitRef.current && !isTypstReady) return;
+    didInitRef.current = true;
+
     const load = async () => {
       try {
         setIsLoading(true);
-        const project = await fetchUserProjectById(projectId);
-        if (!project) throw new Error("Project not found");
 
-        const content = await loadProjectFile(project.typ_path);
-        contentRef.current = content;
-        setProjectTitle(project.title);
-        setTypPath(project.typ_path);
-        setLastSaved(new Date(project.updated_at));
-        setHasChanges(false);
+        if (isTypstReady) {
+          const project = await fetchUserProjectById(projectId);
+          if (!project) throw new Error("Project not found");
 
-        if (isTypstReady) compileTypst(content);
+          const content = await loadProjectFile(project.typ_path);
+
+          contentRef.current = content;
+          setProjectTitle(project.title);
+          setTypPath(project.typ_path);
+          setLastSaved(new Date(project.updated_at));
+          setHasChanges(false);
+          compileTypst(content);
+        }
       } catch {
         alert("Failed to load project.");
         router.push("/dashboard");
