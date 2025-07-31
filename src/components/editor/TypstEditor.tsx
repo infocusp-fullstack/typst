@@ -14,6 +14,7 @@ import { Toolbar } from "@/components/editor/Toolbar";
 import { EditorPane } from "@/components/editor/EditorPane";
 import { PreviewPane } from "@/components/editor/PreviewPane";
 import { User } from "@supabase/supabase-js";
+import { Loading } from "@/components/ui/loading";
 
 interface TypstEditorProps {
   projectId: string;
@@ -134,43 +135,45 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
     }
   };
 
-  return (
-    !isLoading && (
-      <div className="h-screen flex flex-col">
-        <Toolbar
-          key={projectId}
-          projectTitle={projectTitle}
-          isSaving={isSaving}
-          hasUnsavedChanges={hasChanges}
-          lastSaved={lastSaved}
-          onSave={handleSave}
-          onExport={handleExport}
-          onBack={handleBack}
-          theme={theme || "light"}
-          toggleTheme={toggleTheme}
-          isCompiling={isCompiling}
-          isTypstReady={isTypstReady}
-        />
+  if (isLoading) {
+    return <Loading text="Loading your document..." fullScreen />;
+  }
 
-        <div className="flex-1 flex overflow-hidden">
-          <div className="w-1/2 border-r overflow-hidden h-full">
-            <EditorPane
-              key={`${projectId} - ${theme}`}
-              initialContent={contentRef.current}
-              theme={theme || "dark"}
-              onChange={handleChange}
-              onSave={handleSave}
-            />
-          </div>
-          <div className="w-1/2 overflow-auto preview-container h-full">
-            <PreviewPane
-              content={preview}
-              isCompiling={isCompiling}
-              error={error}
-            />
-          </div>
+  return (
+    <div className="h-screen flex flex-col">
+      <Toolbar
+        key={projectId}
+        projectTitle={projectTitle}
+        isSaving={isSaving}
+        hasUnsavedChanges={hasChanges}
+        lastSaved={lastSaved}
+        onSave={handleSave}
+        onExport={handleExport}
+        onBack={handleBack}
+        theme={theme || "light"}
+        toggleTheme={toggleTheme}
+        isCompiling={isCompiling}
+        isTypstReady={isTypstReady}
+      />
+
+      <div className="flex-1 flex overflow-hidden">
+        <div className="w-1/2 border-r overflow-hidden h-full">
+          <EditorPane
+            key={`${projectId} - ${theme}`}
+            initialContent={contentRef.current}
+            theme={theme || "dark"}
+            onChange={handleChange}
+            onSave={handleSave}
+          />
+        </div>
+        <div className="w-1/2 overflow-auto preview-container h-full">
+          <PreviewPane
+            content={preview}
+            isCompiling={isCompiling}
+            error={error}
+          />
         </div>
       </div>
-    )
+    </div>
   );
 }
