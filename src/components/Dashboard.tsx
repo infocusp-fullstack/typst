@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -27,7 +27,6 @@ import {
   RefreshCw,
   Trash2,
   MoreVertical,
-  Clock,
   Moon,
   Sun,
   FileText,
@@ -85,7 +84,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
   // Keyboard shortcut label
   const isMac =
-    // @ts-ignore
+    // @ts-expect-error this is fine
     navigator.userAgentData?.platform?.toLowerCase().includes("mac") ?? false;
   const shortcutLabel = isMac ? (
     <>
