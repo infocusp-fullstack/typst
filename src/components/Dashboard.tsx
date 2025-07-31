@@ -20,7 +20,6 @@ import {
   createNewProject,
   deleteProject,
   checkStorageAccess,
-  type Project,
 } from "@/lib/projectService";
 import {
   Plus,
@@ -36,6 +35,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import { Project } from "@/types";
 
 interface DashboardProps {
   user: User;
@@ -155,8 +155,8 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   };
 
   const getUserName = () => {
-    if (user.user_metadata?.display_name) {
-      return user.user_metadata.display_name;
+    if (user.user_metadata?.full_name) {
+      return user.user_metadata.full_name;
     }
 
     const emailName = user.email?.split("@")[0];
@@ -222,16 +222,24 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className="relative h-8 w-8 rounded-full"
-                >
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>
-                      {getUserName().charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
+                <Avatar className="h-8 w-8">
+                  <AvatarFallback>
+                    {getUserName().charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+
+                {/* {user.user_metadata?.avatar_url ? (
+                  <img
+                    src={user.user_metadata.avatar_url}
+                    alt={user.user_metadata.full_name}
+                    className="w-8 h-8 rounded-full object-cover border"
+                    style={{ marginRight: "0.5rem" }}
+                  />
+                ) : (
+                  <span className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-bold border">
+                    {user.email ? [0] : "U"}
+                  </span>
+                )} */}
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">

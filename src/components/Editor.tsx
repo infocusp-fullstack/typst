@@ -5,27 +5,30 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useTypst } from "@/hooks/useTypyst";
 import {
-  fetchUserProjects,
+  fetchUserProjectById,
   loadProjectFile,
   saveProjectFile,
 } from "@/lib/projectService";
-import {
-  createMultiplePages,
-  analyzePageRequirements,
-} from "@/lib/pageUtilities";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Toolbar } from "./Toolbar";
 import { EditorPane } from "./EditorPane";
 import { PreviewPane } from "./PreviewPane";
+import { User } from "@supabase/supabase-js";
 
-export default function TypstEditor({ projectId }: { projectId: string }) {
+interface TypstEditorProps {
+  projectId: string;
+  user: User;
+  signOut: () => Promise<void>;
+}
+
+export default function TypstEditor({ projectId }: TypstEditorProps) {
   const router = useRouter();
   const { theme, setTheme } = useTheme();
   const { $typst, isReady: isTypstReady } = useTypst();
 
   const contentRef = useRef("");
   const [isLoading, setIsLoading] = useState(true);
-  const [preview, setPreview] = useState<string | null>("");
+  const [preview, setPreview] = useState<Uint8Array | null>(null);
   const [projectTitle, setProjectTitle] = useState("");
   const [typPath, setTypPath] = useState("");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -34,12 +37,35 @@ export default function TypstEditor({ projectId }: { projectId: string }) {
   const [hasChanges, setHasChanges] = useState(false);
   const [isCompiling, setIsCompiling] = useState(false);
 
+  const compileTypst = useCallback(
+    async (source: string) => {
+      if (!$typst || !isTypstReady || !source) {
+        setPreview(null);
+        return;
+      }
+
+      setIsCompiling(true);
+      setError(null);
+
+      try {
+        const pdf = await $typst.pdf({ mainContent: source });
+        setPreview(pdf);
+      } catch (err) {
+        setError("Compilation failed");
+        console.error(err);
+        setPreview(null); // fallback on error
+      } finally {
+        setIsCompiling(false);
+      }
+    },
+    [$typst, isTypstReady]
+  );
+
   useEffect(() => {
     const load = async () => {
       try {
         setIsLoading(true);
-        const projects = await fetchUserProjects();
-        const project = projects.find((p) => p.id === projectId);
+        const project = await fetchUserProjectById(projectId);
         if (!project) throw new Error("Project not found");
 
         const content = await loadProjectFile(project.typ_path);
@@ -60,60 +86,6 @@ export default function TypstEditor({ projectId }: { projectId: string }) {
 
     if (projectId !== "new") load();
   }, [projectId, isTypstReady]);
-
-  const compileTypst = useCallback(
-    async (source: string) => {
-      if (!$typst || !isTypstReady || !source) {
-        setPreview("");
-        return;
-      }
-
-      setIsCompiling(true);
-      setError(null);
-
-      try {
-        const svg = await $typst.svg({ mainContent: source });
-
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(svg, "image/svg+xml");
-        const svgElement = doc.querySelector("svg");
-
-        const viewBox = svgElement?.getAttribute("viewBox");
-        if (!svgElement || !svgElement.innerHTML.trim() || !viewBox) {
-          setPreview("");
-          return;
-        }
-
-        const [x, y, width, height] = viewBox.split(" ").map(Number);
-        const pageAnalysis = analyzePageRequirements(height);
-
-        if (pageAnalysis.pages > 1) {
-          const paginated = createMultiplePages(
-            svgElement,
-            x,
-            y,
-            width,
-            height,
-            pageAnalysis.pageHeight
-          );
-          setPreview(paginated);
-        } else {
-          setPreview(`
-            <div class="page-wrapper">
-              <div class="svg-page">${svg}</div>
-            </div>
-        `);
-        }
-      } catch (err) {
-        setError("Compilation failed");
-        console.error(err);
-        setPreview(""); // fallback on error
-      } finally {
-        setIsCompiling(false);
-      }
-    },
-    [$typst, isTypstReady]
-  );
 
   const debouncedCompile = useDebounce(compileTypst, 1500);
 

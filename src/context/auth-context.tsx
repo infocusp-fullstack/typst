@@ -9,7 +9,7 @@ import {
   useCallback,
 } from "react";
 import { useRouter } from "next/navigation";
-import type { User } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { getBrowserClient } from "@/lib/supabaseClient";
 
 type AuthContextType = {
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const handleAuthStateChange = useCallback(
-    (event: string, session: any) => {
+    (event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
       setIsLoading(false);
 

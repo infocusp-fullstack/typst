@@ -1,17 +1,33 @@
 // PreviewPane.tsx
 "use client";
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
+
+interface PreviewPaneProps {
+  content: string | Uint8Array | null;
+  isCompiling: boolean;
+  error: string | null;
+}
 
 export const PreviewPane = memo(function PreviewPane({
   content,
   isCompiling,
   error,
-}: {
-  content: string;
-  isCompiling: boolean;
-  error: string | null;
-}) {
-  const isEmpty = !content || content.trim() === "";
+}: PreviewPaneProps) {
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (content instanceof Uint8Array) {
+      const blob = new Blob([content], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      setPdfUrl(url);
+
+      return () => {
+        URL.revokeObjectURL(url);
+      };
+    } else {
+      setPdfUrl(null);
+    }
+  }, [content]);
 
   if (isCompiling) {
     return (
@@ -32,7 +48,7 @@ export const PreviewPane = memo(function PreviewPane({
     );
   }
 
-  if (isEmpty) {
+  if (!content || (typeof content === "string" && content.trim() === "")) {
     return (
       <div className="placeholder flex items-center justify-center h-full text-muted-foreground text-sm">
         Start typing to see your document
@@ -40,10 +56,26 @@ export const PreviewPane = memo(function PreviewPane({
     );
   }
 
+  if (pdfUrl) {
+    return (
+      <div className="h-full w-full overflow-hidden">
+        <iframe
+          src={
+            pdfUrl +
+            "#toolbar=0&navpanes=0&scrollbar=1view=FitH&print=0&download=0"
+          }
+          className="w-full h-full"
+          title="PDF Preview"
+        />
+      </div>
+    );
+  }
+
+  // Fallback for string content (if any)
   return (
     <div
       className="pages-container"
-      dangerouslySetInnerHTML={{ __html: content }}
+      dangerouslySetInnerHTML={{ __html: content as string }}
     />
   );
 });

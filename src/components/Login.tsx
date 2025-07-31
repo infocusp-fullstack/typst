@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -10,146 +9,142 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/context/auth-context";
 import { useTheme } from "next-themes";
-import { Mail, Loader2, ArrowRight, Moon, Sun } from "lucide-react";
+import { Loader2, Moon, Sun } from "lucide-react";
+import showToast from "@/lib/toast";
 
-type MessageType = "idle" | "success" | "error" | "info";
-type LoadingState = "idle" | "busy" | "success" | "error";
+// type MessageType = "idle" | "success" | "error" | "info";
+// type LoadingState = "idle" | "busy" | "success" | "error";
 
 export default function Login() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signInWithMagicLink, signInWithGoogle } = useAuth();
   const { theme, setTheme } = useTheme();
-
-  const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<LoadingState>("idle");
-  const [message, setMessage] = useState("");
-  const [messageType, setMessageType] = useState<MessageType>("idle");
   const [googleLoading, setGoogleLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
-  const showMessage = (text: string, type: MessageType = "info") => {
-    setMessage(text);
-    setMessageType(type);
+  // const [email, setEmail] = useState("");
+  // const [status, setStatus] = useState<LoadingState>("idle");
+  // const [message, setMessage] = useState("");
+  // const [messageType, setMessageType] = useState<MessageType>("idle");
+  // const inputRef = useRef<HTMLInputElement>(null);
 
-    if (type === "error") {
-      setTimeout(() => {
-        setMessage("");
-        setMessageType("idle");
-      }, 8000);
-    }
-  };
+  // const showMessage = (text: string, type: MessageType = "info") => {
+  //   setMessage(text);
+  //   setMessageType(type);
 
-  const handleMagicLinkSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (status === "busy") return;
+  //   if (type === "error") {
+  //     setTimeout(() => {
+  //       setMessage("");
+  //       setMessageType("idle");
+  //     }, 8000);
+  //   }
+  // };
 
-    const emailValue = email.trim().toLowerCase();
+  // const handleMagicLinkSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   if (status === "busy") return;
 
-    if (!emailValue || !emailValue.includes("@")) {
-      showMessage("Please enter a valid email address", "error");
-      return;
-    }
+  //   const emailValue = email.trim().toLowerCase();
 
-    if (!emailValue.endsWith("@infocusp.com")) {
-      showMessage(
-        "Access restricted to Infocusp employees only. Please use your @infocusp.com email address.",
-        "error",
-      );
-      return;
-    }
+  //   if (!emailValue || !emailValue.includes("@")) {
+  //     showMessage("Please enter a valid email address", "error");
+  //     return;
+  //   }
 
-    setStatus("busy");
-    setMessage("");
-    setMessageType("idle");
+  //   if (!emailValue.endsWith("@infocusp.com")) {
+  //     showMessage(
+  //       "Access restricted to Infocusp employees only. Please use your @infocusp.com email address.",
+  //       "error"
+  //     );
+  //     return;
+  //   }
 
-    try {
-      const { error } = await signInWithMagicLink(emailValue);
+  //   setStatus("busy");
+  //   setMessage("");
+  //   setMessageType("idle");
 
-      if (error) {
-        setStatus("error");
-        showMessage(
-          error.message || "Failed to send magic link. Please try again.",
-          "error",
-        );
-      } else {
-        setStatus("success");
-        showMessage(
-          "Magic link sent! Check your email and click the link to sign in.",
-          "success",
-        );
-      }
-    } catch {
-      setStatus("error");
-      showMessage("An unexpected error occurred. Please try again.", "error");
-    }
-  };
+  //   try {
+  //     const { error } = await signInWithMagicLink(emailValue);
+
+  //     if (error) {
+  //       setStatus("error");
+  //       showMessage(
+  //         error.message || "Failed to send magic link. Please try again.",
+  //         "error"
+  //       );
+  //     } else {
+  //       setStatus("success");
+  //       showMessage(
+  //         "Magic link sent! Check your email and click the link to sign in.",
+  //         "success"
+  //       );
+  //     }
+  //   } catch {
+  //     setStatus("error");
+  //     showMessage("An unexpected error occurred. Please try again.", "error");
+  //   }
+  // };
 
   const handleGoogleSignIn = async () => {
     if (googleLoading) return;
 
     setGoogleLoading(true);
-    setMessage("");
-    setMessageType("idle");
 
     try {
       const { error } = await signInWithGoogle();
 
       if (error) {
-        showMessage(
-          error.message || "Google sign-in failed. Please try again.",
-          "error",
-        );
+        showToast.error("Google sign-in failed. Please try again.");
       }
     } catch {
-      showMessage("An unexpected error occurred. Please try again.", "error");
+      showToast.error("An unexpected error occurred. Please try again.");
     } finally {
       setGoogleLoading(false);
     }
   };
 
-  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEmail(e.target.value);
-    if (messageType === "error") {
-      setMessage("");
-      setMessageType("idle");
-    }
-  };
+  // const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   setEmail(e.target.value);
+  //   if (messageType === "error") {
+  //     setMessage("");
+  //     setMessageType("idle");
+  //   }
+  // };
 
-  const handleInputFocus = () => {
-    if (messageType === "error") {
-      setMessage("");
-      setMessageType("idle");
-    }
-  };
+  // const handleInputFocus = () => {
+  //   if (messageType === "error") {
+  //     setMessage("");
+  //     setMessageType("idle");
+  //   }
+  // };
 
-  const getMessageClasses = () => {
-    const baseClasses = "text-sm font-medium p-3 rounded-md";
-    switch (messageType) {
-      case "success":
-        return `${baseClasses} bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800`;
-      case "error":
-        return `${baseClasses} bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800`;
-      case "info":
-        return `${baseClasses} bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800`;
-      default:
-        return "";
-    }
-  };
+  // const getMessageClasses = () => {
+  //   const baseClasses = "text-sm font-medium p-3 rounded-md";
+  //   switch (messageType) {
+  //     case "success":
+  //       return `${baseClasses} bg-green-50 text-green-800 border border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800`;
+  //     case "error":
+  //       return `${baseClasses} bg-red-50 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800`;
+  //     case "info":
+  //       return `${baseClasses} bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800`;
+  //     default:
+  //       return "";
+  //   }
+  // };
 
-  const getButtonText = () => {
-    switch (status) {
-      case "busy":
-        return "Sending...";
-      case "success":
-        return "Check your email";
-      case "error":
-        return "Try again";
-      default:
-        return "Send Magic Link";
-    }
-  };
+  // const getButtonText = () => {
+  //   switch (status) {
+  //     case "busy":
+  //       return "Sending...";
+  //     case "success":
+  //       return "Check your email";
+  //     case "error":
+  //       return "Try again";
+  //     default:
+  //       return "Send Magic Link";
+  //   }
+  // };
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -198,7 +193,7 @@ export default function Login() {
 
           {/* Login Card */}
           <Card className="shadow-xl border-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
-            <CardHeader className="space-y-1">
+            <CardHeader className="space-y-1 px-6 pt-6 pb-0">
               <CardTitle className="text-2xl font-semibold text-center">
                 Welcome Back
               </CardTitle>
@@ -239,7 +234,7 @@ export default function Login() {
                 Continue with Google
               </Button>
 
-              <div className="relative">
+              {/* <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <Separator className="w-full" />
                 </div>
@@ -248,10 +243,10 @@ export default function Login() {
                     Or continue with
                   </span>
                 </div>
-              </div>
+              </div> */}
 
               {/* Magic Link Form */}
-              <form onSubmit={handleMagicLinkSubmit} className="space-y-4">
+              {/* <form onSubmit={handleMagicLinkSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <label
                     htmlFor="email"
@@ -292,10 +287,10 @@ export default function Login() {
                     </>
                   )}
                 </Button>
-              </form>
+              </form> */}
 
               {/* Message Display */}
-              {message && <div className={getMessageClasses()}>{message}</div>}
+              {/* {message && <div className={getMessageClasses()}>{message}</div>} */}
             </CardContent>
           </Card>
         </div>

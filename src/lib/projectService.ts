@@ -1,17 +1,8 @@
-// lib/projectService.ts
 import { getBrowserClient } from "./supabaseClient";
+import { Project } from "@/types";
 
 // Default content for new documents
 const DEFAULT_CONTENT = ``;
-
-export interface Project {
-  id: string;
-  user_id: string;
-  title: string;
-  typ_path: string;
-  created_at: string;
-  updated_at: string;
-}
 
 /* ---------- Fetch user projects ---------- */
 export async function fetchUserProjects(): Promise<Project[]> {
@@ -29,6 +20,28 @@ export async function fetchUserProjects(): Promise<Project[]> {
     return (data as unknown as Project[]) || [];
   } catch (error) {
     throw error;
+  }
+}
+
+export async function fetchUserProjectById(
+  projectId: string
+): Promise<Project | null> {
+  try {
+    const supabase = getBrowserClient();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("*")
+      .eq("id", projectId)
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to fetch project: ${error.message}`);
+    }
+
+    return data as Project;
+  } catch (error) {
+    console.error(error);
+    return null;
   }
 }
 
