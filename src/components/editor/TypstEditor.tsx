@@ -10,9 +10,9 @@ import {
   saveProjectFile,
 } from "@/lib/projectService";
 import { useDebounce } from "@/hooks/useDebounce";
-import { Toolbar } from "./Toolbar";
-import { EditorPane } from "./EditorPane";
-import { PreviewPane } from "./PreviewPane";
+import { Toolbar } from "@/components/editor/Toolbar";
+import { EditorPane } from "@/components/editor/EditorPane";
+import { PreviewPane } from "@/components/editor/PreviewPane";
 import { User } from "@supabase/supabase-js";
 
 interface TypstEditorProps {

@@ -1,4 +1,5 @@
 "use client";
+
 import { useEffect, useRef, useCallback } from "react";
 import { EditorView, keymap, lineNumbers } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";

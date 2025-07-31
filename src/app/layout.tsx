@@ -1,5 +1,5 @@
 import { ThemeProvider } from "@/hooks/useTheme";
-import { AuthProvider } from "@/context/auth-context";
+import { AuthProvider } from "@/hooks/useAuth";
 import "./globals.css";
 
 export const metadata = {

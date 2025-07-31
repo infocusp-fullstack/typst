@@ -32,6 +32,7 @@ import {
   Sun,
   FileText,
   Edit3,
+  Users,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { Project } from "@/types";
@@ -40,6 +41,16 @@ interface DashboardProps {
   user: User;
   signOut: () => Promise<void>;
 }
+
+// Helper function to format dates
+const formatDate = (date: string) => {
+  const projectDate = new Date(date);
+  return projectDate.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+};
 
 export default function Dashboard({ user, signOut }: DashboardProps) {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -53,6 +64,56 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const { theme, toggleTheme } = useTheme();
 
   const router = useRouter();
+
+  // Handle Ctrl+K shortcut for search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        const searchInput = document.getElementById(
+          "search-input"
+        ) as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Keyboard shortcut label
+  const isMac =
+    // @ts-ignore
+    navigator.userAgentData?.platform?.toLowerCase().includes("mac") ?? false;
+  const shortcutLabel = isMac ? (
+    <>
+      <span
+        className={`font-mono text-xs px-1.5 bg-muted text-muted-foreground py-0.5 rounded mr-1`}
+      >
+        ⌘
+      </span>
+      <span
+        className={`font-mono text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded`}
+      >
+        K
+      </span>
+    </>
+  ) : (
+    <>
+      <span
+        className={`font-mono text-xs px-1.5 bg-muted text-muted-foreground py-0.5 rounded mr-1`}
+      >
+        Ctrl
+      </span>
+      <span
+        className={`font-mono text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded`}
+      >
+        K
+      </span>
+    </>
+  );
 
   const initializeDashboard = useCallback(async () => {
     try {
@@ -166,26 +227,6 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     return "User";
   };
 
-  const formatTimeAgo = (date: string) => {
-    const now = new Date();
-    const projectDate = new Date(date);
-    const diffInMinutes = Math.floor(
-      (now.getTime() - projectDate.getTime()) / (1000 * 60)
-    );
-
-    if (diffInMinutes < 1) {
-      return "Just now";
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes} minute${diffInMinutes > 1 ? "s" : ""} ago`;
-    } else if (diffInMinutes < 1440) {
-      const hours = Math.floor(diffInMinutes / 60);
-      return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-    } else {
-      const days = Math.floor(diffInMinutes / 1440);
-      return `${days} day${days > 1 ? "s" : ""} ago`;
-    }
-  };
-
   const filteredProjects = projects.filter((project) =>
     project.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -204,7 +245,22 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
             <span className="font-semibold text-lg">Typst Resume</span>
           </div>
 
-          <div className="flex-1" />
+          {/* Search Bar in Header */}
+          <div className="flex-1 flex justify-center">
+            <div className="relative max-w-md w-full">
+              <Search className="rounded absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                id="search-input"
+                placeholder="Search documents..."
+                className="pl-10 pr-24 bg-background/50 supports-[backdrop-filter]:bg-background/50"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <span className="absolute right-2 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+                {shortcutLabel}
+              </span>
+            </div>
+          </div>
 
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="icon" onClick={toggleTheme}>
@@ -222,19 +278,6 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                     {getUserName().charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-
-                {/* {user.user_metadata?.avatar_url ? (
-                  <img
-                    src={user.user_metadata.avatar_url}
-                    alt={user.user_metadata.full_name}
-                    className="w-8 h-8 rounded-full object-cover border"
-                    style={{ marginRight: "0.5rem" }}
-                  />
-                ) : (
-                  <span className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-bold border">
-                    {user.email ? [0] : "U"}
-                  </span>
-                )} */}
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
@@ -264,48 +307,27 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       {/* Main Content */}
       <main className="flex-1 p-6">
         <div className="mx-auto max-w-7xl space-y-6">
-          {/* Welcome Section */}
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">
-              Welcome back, {getUserName()}!
-            </h1>
-            <p className="text-muted-foreground">
-              Create and manage your Typst documents with real-time preview.
-            </p>
-          </div>
-
-          {/* Search and Actions */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search documents..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadProjects}
-                className="cursor-pointer"
-                disabled={isLoading}
-              >
-                <RefreshCw
-                  className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
-                />
-                Refresh
-              </Button>
-              <Button
+          {/* Create Document Section */}
+          <div className="space-y-4">
+            <h2 className="text-lg font-medium">Start a new document</h2>
+            <div className="flex gap-4">
+              <Card
+                className="w-48 h-56 border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all duration-200 cursor-pointer group"
                 onClick={handleCreateNewDocument}
-                disabled={isCreating}
-                className="cursor-pointer"
               >
-                <Plus className="mr-2 h-4 w-4" />
-                {isCreating ? "Creating..." : "New Document"}
-              </Button>
+                <CardContent className="flex flex-col items-center justify-center h-full p-6">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
+                    {isCreating ? (
+                      <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    ) : (
+                      <Plus className="w-6 h-6 text-primary" />
+                    )}
+                  </div>
+                  <span className="text-sm text-muted-foreground font-medium">
+                    {isCreating ? "Creating..." : "Blank Document"}
+                  </span>
+                </CardContent>
+              </Card>
             </div>
           </div>
 
@@ -331,168 +353,148 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
             </Card>
           )}
 
-          {/* Projects Grid */}
-          {isLoading ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {[...Array(8)].map((_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <div className="h-4 bg-muted rounded w-3/4" />
-                      <div className="h-3 bg-muted rounded w-1/2" />
-                      <div className="h-8 bg-muted rounded" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : filteredProjects.length === 0 ? (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <div className="text-4xl mb-4">📄</div>
-                <h3 className="text-lg font-semibold mb-2">
-                  {searchQuery ? "No documents found" : "No documents yet"}
-                </h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  {searchQuery
-                    ? "Try adjusting your search terms"
-                    : "Create your first document to get started"}
-                </p>
-                {!searchQuery && (
-                  <Button
-                    onClick={handleCreateNewDocument}
-                    disabled={isCreating}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Create Document
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredProjects.map((project) => (
-                <Card
-                  key={project.id}
-                  className="group hover:shadow-lg transition-all duration-200 hover:-translate-y-1 cursor-pointer border-2 hover:border-primary/20"
-                  onClick={() => {
-                    setNavigatingToEditor(project.id);
-                    router.push(`/editor/${project.id}`);
-                  }}
-                >
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
-                          <FileText className="h-6 w-6 text-white" />
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                router.push(`/editor/${project.id}`);
-                              }}
-                            >
-                              <Edit3 className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteProject(
-                                  project.id,
-                                  project.typ_path
-                                );
-                              }}
-                              className="text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="font-semibold leading-none tracking-tight text-lg">
-                          {project.title}
-                        </h3>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          {formatTimeAgo(project.updated_at)}
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        className="w-full cursor-pointer group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setNavigatingToEditor(project.id);
-                          router.push(`/editor/${project.id}`);
-                        }}
-                      >
-                        {navigatingToEditor === project.id ? (
-                          <div className="flex items-center gap-2">
-                            <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-current" />
-                            <span>Opening...</span>
-                          </div>
-                        ) : (
-                          "Open Document"
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          {/* Recent Documents Section */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-x-4">
+              <h2 className="text-lg font-medium">Recent documents</h2>
 
-          {/* Stats */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Documents
-                </CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{projects.length}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Recent Activity
-                </CardTitle>
-                <Clock className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {
-                    projects.filter((p) => {
-                      const date = new Date(p.updated_at);
-                      const now = new Date();
-                      return (
-                        now.getTime() - date.getTime() < 24 * 60 * 60 * 1000
-                      );
-                    }).length
-                  }
-                </div>
-                <p className="text-xs text-muted-foreground">Updated today</p>
-              </CardContent>
-            </Card>
+              <div className="flex items-end justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadProjects}
+                  className="cursor-pointer"
+                  disabled={isLoading}
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                  />
+                </Button>
+              </div>
+            </div>
+
+            {/* Projects Grid */}
+            {isLoading ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="w-full aspect-[210/297] bg-muted rounded-lg mb-3" />
+                    <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+                    <div className="h-3 bg-muted rounded w-1/2" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredProjects.length === 0 ? (
+              <Card className="border-dashed">
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <div className="text-4xl mb-4">📄</div>
+                  <h3 className="text-lg font-semibold mb-2">
+                    {searchQuery ? "No documents found" : "No documents yet"}
+                  </h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    {searchQuery
+                      ? "Try adjusting your search"
+                      : "Create your first document to get started"}
+                  </p>
+                  {!searchQuery && (
+                    <Button
+                      onClick={handleCreateNewDocument}
+                      disabled={isCreating}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Create Document
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                {filteredProjects.map((project) => (
+                  <div
+                    key={project.id}
+                    className="group relative cursor-pointer"
+                    onClick={() => {
+                      setNavigatingToEditor(project.id);
+                      router.push(`/editor/${project.id}`);
+                    }}
+                  >
+                    {/* Document Preview Card */}
+                    <div className="relative w-full aspect-[210/297] bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 mb-3 overflow-hidden">
+                      {/* Document preview background */}
+                      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-background">
+                        {/* File icon */}
+                        <div className="flex items-center justify-center h-2/3">
+                          <FileText className="h-16 w-16 text-primary/30" />
+                        </div>
+
+                        {/* Document title at bottom */}
+                        <div className="absolute bottom-0 left-0 right-0 p-3 bg-card border-t border-border">
+                          <h3 className="text-sm font-medium truncate hover:text-primary transition-colors">
+                            {project.title.charAt(0).toUpperCase() +
+                              project.title.slice(1)}
+                          </h3>
+                          <div className="flex gap-2">
+                            <div className="w-4 h-4 bg-primary rounded flex items-center justify-center flex-shrink-0 mt-0.5">
+                              <FileText className="h-3 w-3 text-primary-foreground" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1 mt-1">
+                                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                <span className="text-xs text-muted-foreground">
+                                  {formatDate(project.updated_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Loading overlay */}
+                      {navigatingToEditor === project.id && (
+                        <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        </div>
+                      )}
+
+                      {/* Menu button */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <div
+                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 flex items-center justify-center hover:bg-muted rounded-full cursor-pointer"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setNavigatingToEditor(project.id);
+                              router.push(`/editor/${project.id}`);
+                            }}
+                          >
+                            <Edit3 className="mr-2 h-4 w-4" />
+                            Open
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteProject(project.id, project.typ_path);
+                            }}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>

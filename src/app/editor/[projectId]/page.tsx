@@ -3,8 +3,8 @@
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Editor from "@/components/Editor";
-import { useAuth } from "@/context/auth-context";
+import TypstEditor from "@/components/editor/TypstEditor";
+import { useAuth } from "@/hooks/useAuth";
 import { Loading } from "@/components/ui/loading";
 
 export default function EditorPage() {
@@ -33,5 +33,5 @@ export default function EditorPage() {
   }
 
   // Pass the dynamic projectId to the Editor component
-  return <Editor projectId={projectId} user={user} signOut={signOut} />;
+  return <TypstEditor projectId={projectId} user={user} signOut={signOut} />;
 }

@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Login from "@/components/Login"; // Adjust path as needed
-import { useAuth } from "@/context/auth-context";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
   const { user, isLoading } = useAuth();

@@ -24,7 +24,7 @@ export async function fetchUserProjects(): Promise<Project[]> {
 }
 
 export async function fetchUserProjectById(
-  projectId: string
+  projectId: string,
 ): Promise<Project | null> {
   try {
     const supabase = getBrowserClient();
@@ -77,7 +77,7 @@ export async function loadProjectFile(path: string): Promise<string> {
 /* ---------- Create new project with initial file ---------- */
 export async function createNewProject(
   userId: string,
-  title: string = "Untitled Document"
+  title: string = "Untitled Document",
 ): Promise<Project> {
   try {
     const projectId = crypto.randomUUID();
@@ -125,7 +125,7 @@ export async function createNewProject(
 export async function saveProjectFile(
   projectId: string,
   typPath: string,
-  code: string
+  code: string,
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();
@@ -161,7 +161,7 @@ export async function saveProjectFile(
 /* ---------- Delete project ---------- */
 export async function deleteProject(
   projectId: string,
-  typPath: string
+  typPath: string,
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();

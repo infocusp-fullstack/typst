@@ -3,7 +3,7 @@ import { useRef, useEffect } from "react";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function useDebounce<T extends (...args: any[]) => void>(
   callback: T,
-  delay: number
+  delay: number,
 ): T {
   const timer = useRef<number>(0);
 
