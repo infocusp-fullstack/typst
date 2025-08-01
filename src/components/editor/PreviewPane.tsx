@@ -1,4 +1,3 @@
-// PreviewPane.tsx
 "use client";
 import { memo, useEffect, useState } from "react";
 
@@ -56,17 +55,11 @@ export const PreviewPane = memo(function PreviewPane({
     );
   }
 
+  // pdfUrl + ("#toolbar=0&navpanes=0&scrollbar=1view=FitH&print=0&download=0");
   if (pdfUrl) {
     return (
       <div className="h-full w-full overflow-hidden">
-        <iframe
-          src={
-            pdfUrl +
-            "#toolbar=0&navpanes=0&scrollbar=1view=FitH&print=0&download=0"
-          }
-          className="w-full h-full"
-          title="PDF Preview"
-        />
+        <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
       </div>
     );
   }
