@@ -1,9 +1,9 @@
 "use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Dashboard from "@/components/Dashboard";
 import { useAuth } from "@/hooks/useAuth";
 import { Loading } from "@/components/ui/loading";
+import Dashboard from "@/components/dashboard/Dashboard";
 
 export default function DashboardPage() {
   const { user, isLoading, signOut } = useAuth();
