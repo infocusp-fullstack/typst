@@ -6,10 +6,11 @@ interface ProjectGridProps {
   projects: Project[];
   onOpenProject: (projectId: string) => void;
   onDeleteProject: (projectId: string, typPath: string) => void;
+  navigatingToEditor: string | null;
 }
 
 const ProjectGrid = React.memo(
-  ({ projects, onOpenProject, onDeleteProject }: ProjectGridProps) => {
+  ({ projects, onOpenProject, onDeleteProject, navigatingToEditor }: ProjectGridProps) => {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {projects.map((project) => (
@@ -18,6 +19,7 @@ const ProjectGrid = React.memo(
             project={project}
             onOpen={() => onOpenProject(project.id)}
             onDelete={() => onDeleteProject(project.id, project.typ_path)}
+            isNavigating={navigatingToEditor === project.id}
           />
         ))}
       </div>

@@ -1,4 +1,3 @@
-// components/dashboard/Dashboard.tsx
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -30,8 +29,10 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
+    null
+  );
 
-  // New view state
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const { theme, toggleTheme } = useTheme();
@@ -47,13 +48,11 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     }
   }, []);
 
-  // Save view preference to localStorage
   const handleViewChange = (newView: "grid" | "list") => {
     setViewMode(newView);
     localStorage.setItem("dashboard-view-mode", newView);
   };
 
-  // Existing functions (keeping them as they were)
   const loadProjects = useCallback(async () => {
     try {
       const userProjects = await fetchUserProjects();
@@ -79,18 +78,33 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     initializeDashboard();
   }, [initializeDashboard]);
 
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadProjects();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadProjects]);
+
   const handleCreateNewDocument = useCallback(async () => {
     if (isCreating) return;
 
-    const title = prompt("Document name:", "My New Document");
+    const title = prompt(
+      "What would you like to name your document?",
+      "My New Document"
+    );
     if (!title?.trim()) return;
 
     try {
       setIsCreating(true);
       const newProject = await createNewProject(user.id, title.trim());
       setProjects((prev) => [newProject, ...prev]);
-
-      // Navigate immediately without loading state
+      setNavigatingToEditor(newProject.id);
       router.push(`/editor/${newProject.id}`);
     } catch (err) {
       alert(
@@ -103,6 +117,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
   const handleOpenProject = useCallback(
     (projectId: string) => {
+      setNavigatingToEditor(projectId);
       router.push(`/editor/${projectId}`);
     },
     [router]
@@ -111,7 +126,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const handleDeleteProject = useCallback(
     async (projectId: string, typPath: string) => {
       if (
-        !confirm("Delete this document forever? This action cannot be undone.")
+        !confirm("Delete this project forever? This action cannot be undone.")
       )
         return;
 
@@ -145,7 +160,6 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     [projects, searchQuery]
   );
 
-  // Loading skeleton components
   const GridSkeleton = () => (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
       {Array(10)
@@ -201,13 +215,13 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           <div className="space-y-4">
             <h2 className="text-lg font-medium">Start a new document</h2>
             <Card
-              className="w-72 h-20 border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer group"
+              className="w-72 h-24 border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer group"
               onClick={handleCreateNewDocument}
             >
               <CardContent className="flex flex-col items-center justify-center h-full p-6">
                 <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
                   {isCreating ? (
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   ) : (
                     <Plus className="w-4 h-4 text-primary" />
                   )}
@@ -219,7 +233,6 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
             </Card>
           </div>
 
-          {/* Error Display */}
           {error && (
             <Card className="border-destructive bg-destructive/10">
               <CardContent className="pt-6">
@@ -279,7 +292,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                   </h3>
                   <p className="text-muted-foreground text-center mb-4">
                     {searchQuery
-                      ? "Try adjusting your search query"
+                      ? "Try adjusting your search"
                       : "Create your first document to get started"}
                   </p>
                   {!searchQuery && (
@@ -298,12 +311,14 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                 projects={filteredProjects}
                 onOpenProject={handleOpenProject}
                 onDeleteProject={handleDeleteProject}
+                navigatingToEditor={navigatingToEditor}
               />
             ) : (
               <ProjectList
                 projects={filteredProjects}
                 onOpenProject={handleOpenProject}
                 onDeleteProject={handleDeleteProject}
+                navigatingToEditor={navigatingToEditor}
               />
             )}
           </div>

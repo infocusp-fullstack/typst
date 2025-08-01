@@ -6,10 +6,11 @@ interface ProjectListProps {
   projects: Project[];
   onOpenProject: (projectId: string) => void;
   onDeleteProject: (projectId: string, typPath: string) => void;
+  navigatingToEditor: string | null;
 }
 
 const ProjectList = React.memo(
-  ({ projects, onOpenProject, onDeleteProject }: ProjectListProps) => {
+  ({ projects, onOpenProject, onDeleteProject, navigatingToEditor }: ProjectListProps) => {
     return (
       <div className="space-y-2">
         {projects.map((project) => (
@@ -18,6 +19,7 @@ const ProjectList = React.memo(
             project={project}
             onOpen={() => onOpenProject(project.id)}
             onDelete={() => onDeleteProject(project.id, project.typ_path)}
+            isNavigating={navigatingToEditor === project.id}
           />
         ))}
       </div>
