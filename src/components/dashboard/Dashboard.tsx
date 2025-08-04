@@ -1,22 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, RefreshCw } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
-import { Project } from "@/types";
-import {
-  fetchUserProjects,
-  createNewProject,
-  deleteProject,
-} from "@/lib/projectService";
+import { createNewProject, deleteProject } from "@/lib/projectService";
 import { Header } from "./Header";
 import { ViewToggle } from "./ViewToggle";
 import { ProjectGrid } from "./ProjectGrid";
 import { ProjectList } from "./ProjectList";
+import { useInfiniteScroll } from "@/hooks/useInfininiteScroll";
+import { NewDocumentCard } from "./NewDocumentCard";
 
 interface DashboardProps {
   user: User;
@@ -24,19 +21,40 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ user, signOut }: DashboardProps) {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
     null
   );
-
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Use infinite scroll hook
+  const {
+    projects,
+    isLoading,
+    isLoadingMore,
+    error,
+    hasMore,
+    totalCount,
+    refresh,
+    observerRef,
+  } = useInfiniteScroll({
+    searchQuery: debouncedSearchQuery,
+    pageSize: 20,
+  });
 
   // Load view preference from localStorage
   useEffect(() => {
@@ -53,35 +71,11 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     localStorage.setItem("dashboard-view-mode", newView);
   };
 
-  const loadProjects = useCallback(async () => {
-    try {
-      const userProjects = await fetchUserProjects();
-      setProjects(userProjects);
-    } catch {
-      setError("Failed to load projects");
-    }
-  }, []);
-
-  const initializeDashboard = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      await loadProjects();
-    } catch {
-      setError("Failed to initialize dashboard");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [loadProjects]);
-
-  useEffect(() => {
-    initializeDashboard();
-  }, [initializeDashboard]);
-
+  // Refresh projects when tab becomes visible
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        loadProjects();
+        refresh();
       }
     };
 
@@ -89,7 +83,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [loadProjects]);
+  }, [refresh]);
 
   const handleCreateNewDocument = useCallback(async () => {
     if (isCreating) return;
@@ -103,7 +97,11 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     try {
       setIsCreating(true);
       const newProject = await createNewProject(user.id, title.trim());
-      setProjects((prev) => [newProject, ...prev]);
+
+      // Add the new project to the beginning of the list
+      // Note: You might want to refresh instead to ensure proper ordering
+      refresh();
+
       setNavigatingToEditor(newProject.id);
       router.push(`/editor/${newProject.id}`);
     } catch (err) {
@@ -113,7 +111,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     } finally {
       setIsCreating(false);
     }
-  }, [isCreating, user.id, router]);
+  }, [isCreating, user.id, router, refresh]);
 
   const handleOpenProject = useCallback(
     (projectId: string) => {
@@ -132,14 +130,15 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
       try {
         await deleteProject(projectId, typPath);
-        setProjects((prev) => prev.filter((p) => p.id !== projectId));
+        // Refresh the list to ensure consistency
+        refresh();
       } catch (err) {
         alert(
           `Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`
         );
       }
     },
-    []
+    [refresh]
   );
 
   const handleSignOut = useCallback(async () => {
@@ -151,14 +150,6 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       }
     }
   }, [signOut]);
-
-  const filteredProjects = useMemo(
-    () =>
-      projects.filter((project) =>
-        project.title.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
-    [projects, searchQuery]
-  );
 
   const GridSkeleton = () => (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
@@ -195,6 +186,22 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     </div>
   );
 
+  const LoadMoreIndicator = () => (
+    <div ref={observerRef} className="flex justify-center items-center py-8">
+      {isLoadingMore && (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm">Loading more...</span>
+        </div>
+      )}
+      {!hasMore && projects.length > 0 && (
+        <p className="text-sm text-muted-foreground">
+          All {totalCount} documents loaded
+        </p>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header
@@ -212,26 +219,10 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       <main className="flex-1 p-6">
         <div className="mx-auto max-w-7xl space-y-6">
           {/* Create Document Section */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-medium">Start a new document</h2>
-            <Card
-              className="w-72 h-24 border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer group"
-              onClick={handleCreateNewDocument}
-            >
-              <CardContent className="flex flex-col items-center justify-center h-full p-6">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
-                  {isCreating ? (
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                  ) : (
-                    <Plus className="w-4 h-4 text-primary" />
-                  )}
-                </div>
-                <span className="text-sm text-muted-foreground font-medium">
-                  {isCreating ? "Creating..." : "Blank Document"}
-                </span>
-              </CardContent>
-            </Card>
-          </div>
+          <NewDocumentCard
+            isCreating={isCreating}
+            onCreate={handleCreateNewDocument}
+          />
 
           {error && (
             <Card className="border-destructive bg-destructive/10">
@@ -243,7 +234,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={initializeDashboard}
+                      onClick={refresh}
                       className="mt-2"
                     >
                       Try Again
@@ -257,14 +248,21 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           {/* Recent Documents Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">Recent documents</h2>
+              <h2 className="text-lg font-medium">
+                Recent documents
+                {!isLoading && totalCount > 0 && (
+                  <span className="text-sm text-muted-foreground ml-2">
+                    ({projects.length} of {totalCount})
+                  </span>
+                )}
+              </h2>
 
               <div className="flex items-center gap-4">
                 <ViewToggle view={viewMode} onViewChange={handleViewChange} />
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={loadProjects}
+                  onClick={refresh}
                   disabled={isLoading}
                   className="flex items-center gap-2"
                 >
@@ -283,7 +281,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
               ) : (
                 <ListSkeleton />
               )
-            ) : filteredProjects.length === 0 ? (
+            ) : projects.length === 0 ? (
               <Card className="border-dashed">
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <div className="text-4xl mb-4">📄</div>
@@ -306,20 +304,27 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                   )}
                 </CardContent>
               </Card>
-            ) : viewMode === "grid" ? (
-              <ProjectGrid
-                projects={filteredProjects}
-                onOpenProject={handleOpenProject}
-                onDeleteProject={handleDeleteProject}
-                navigatingToEditor={navigatingToEditor}
-              />
             ) : (
-              <ProjectList
-                projects={filteredProjects}
-                onOpenProject={handleOpenProject}
-                onDeleteProject={handleDeleteProject}
-                navigatingToEditor={navigatingToEditor}
-              />
+              <>
+                {viewMode === "grid" ? (
+                  <ProjectGrid
+                    projects={projects}
+                    onOpenProject={handleOpenProject}
+                    onDeleteProject={handleDeleteProject}
+                    navigatingToEditor={navigatingToEditor}
+                  />
+                ) : (
+                  <ProjectList
+                    projects={projects}
+                    onOpenProject={handleOpenProject}
+                    onDeleteProject={handleDeleteProject}
+                    navigatingToEditor={navigatingToEditor}
+                  />
+                )}
+
+                {/* Load More Indicator */}
+                <LoadMoreIndicator />
+              </>
             )}
           </div>
         </div>

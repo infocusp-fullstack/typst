@@ -1,28 +1,98 @@
 import { getBrowserClient } from "./supabaseClient";
 import { Project } from "@/types";
 
-// Default content for new documents
 const DEFAULT_CONTENT = ``;
-
-/* ---------- Fetch user projects ---------- */
-export async function fetchUserProjects(): Promise<Project[]> {
+const PAGE_SIZE = 20;
+/* ---------- Fetch user projects with pagination ---------- */
+export async function fetchUserProjects(
+  page: number = 0,
+  pageSize: number = PAGE_SIZE,
+): Promise<{ projects: Project[]; hasMore: boolean; totalCount: number }> {
   try {
     const supabase = getBrowserClient();
+
+    // Get total count first
+    const { count } = await supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true });
+
+    // Fetch paginated data
     const { data, error } = await supabase
       .from("projects")
       .select("*")
-      .order("updated_at", { ascending: false });
+      .order("updated_at", { ascending: false })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (error) {
       throw new Error(`Failed to fetch projects: ${error.message}`);
     }
 
-    return (data as unknown as Project[]) || [];
+    const projects = (data as unknown as Project[]) || [];
+    const hasMore = (page + 1) * pageSize < (count || 0);
+
+    return {
+      projects,
+      hasMore,
+      totalCount: count || 0,
+    };
   } catch (error) {
     throw error;
   }
 }
+export async function searchUserProjects(
+  searchQuery: string,
+  page: number = 0,
+  pageSize: number = PAGE_SIZE,
+): Promise<{ projects: Project[]; hasMore: boolean; totalCount: number }> {
+  try {
+    const supabase = getBrowserClient();
 
+    // First, get the count with the search filter
+    let countQuery = supabase
+      .from("projects")
+      .select("*", { count: "exact", head: true });
+
+    if (searchQuery.trim()) {
+      countQuery = countQuery.ilike("title", `%${searchQuery.trim()}%`);
+    }
+
+    const { count, error: countError } = await countQuery;
+
+    if (countError) {
+      throw new Error(`Failed to get count: ${countError.message}`);
+    }
+
+    // Then get the paginated data
+    let dataQuery = supabase
+      .from("projects")
+      .select("*")
+      .order("updated_at", { ascending: false });
+
+    if (searchQuery.trim()) {
+      dataQuery = dataQuery.ilike("title", `%${searchQuery.trim()}%`);
+    }
+
+    const { data, error } = await dataQuery.range(
+      page * pageSize,
+      (page + 1) * pageSize - 1,
+    );
+
+    if (error) {
+      throw new Error(`Failed to search projects: ${error.message}`);
+    }
+
+    const projects = (data as unknown as Project[]) || [];
+    const hasMore = (page + 1) * pageSize < (count || 0);
+
+    return {
+      projects,
+      hasMore,
+      totalCount: count || 0,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
 export async function fetchUserProjectById(
   projectId: string,
 ): Promise<Project | null> {

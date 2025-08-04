@@ -60,7 +60,7 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
         setIsCompiling(false);
       }
     },
-    [$typst, isTypstReady]
+    [$typst, isTypstReady],
   );
 
   useEffect(() => {
