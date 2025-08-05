@@ -3,10 +3,11 @@ import { Project } from "@/types";
 
 const DEFAULT_CONTENT = ``;
 const PAGE_SIZE = 20;
+
 /* ---------- Fetch user projects with pagination ---------- */
 export async function fetchUserProjects(
   page: number = 0,
-  pageSize: number = PAGE_SIZE,
+  pageSize: number = PAGE_SIZE
 ): Promise<{ projects: Project[]; hasMore: boolean; totalCount: number }> {
   try {
     const supabase = getBrowserClient();
@@ -37,7 +38,7 @@ export async function fetchUserProjects(
 export async function searchUserProjects(
   searchQuery: string,
   page: number = 0,
-  pageSize: number = PAGE_SIZE,
+  pageSize: number = PAGE_SIZE
 ): Promise<{ projects: Project[]; hasMore: boolean; totalCount: number }> {
   try {
     const supabase = getBrowserClient();
@@ -67,7 +68,7 @@ export async function searchUserProjects(
 }
 
 export async function fetchUserProjectById(
-  projectId: string,
+  projectId: string
 ): Promise<Project | null> {
   try {
     const supabase = getBrowserClient();
@@ -120,7 +121,7 @@ export async function loadProjectFile(path: string): Promise<string> {
 /* ---------- Create new project with initial file ---------- */
 export async function createNewProject(
   userId: string,
-  title: string = "Untitled Document",
+  title: string = "Untitled Document"
 ): Promise<Project> {
   try {
     const projectId = crypto.randomUUID();
@@ -169,7 +170,7 @@ export async function createNewProject(
 export async function saveProjectFile(
   projectId: string,
   typPath: string,
-  code: string,
+  code: string
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();
@@ -205,7 +206,7 @@ export async function saveProjectFile(
 /* ---------- Delete project ---------- */
 export async function deleteProject(
   projectId: string,
-  typPath: string,
+  typPath: string
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();
