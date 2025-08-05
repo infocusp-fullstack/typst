@@ -29,7 +29,9 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
 
   const contentRef = useRef("");
   const [isLoading, setIsLoading] = useState(true);
-  const [preview, setPreview] = useState<Uint8Array | null>(null);
+  const [preview, setPreview] = useState<Uint8Array<ArrayBufferLike> | null>(
+    null
+  );
   const [projectTitle, setProjectTitle] = useState("");
   const [typPath, setTypPath] = useState("");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -108,7 +110,24 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
 
     try {
       setIsSaving(true);
-      await saveProjectFile(projectId, typPath, contentRef.current);
+
+      // Always compile fresh content for save to ensure we have the latest version
+      let pdfContent: Uint8Array<ArrayBufferLike> | null = null;
+      if ($typst && isTypstReady) {
+        try {
+          pdfContent = await $typst.pdf({ mainContent: contentRef.current });
+        } catch (compileError) {
+          console.error("Compilation failed during save:", compileError);
+          pdfContent = null;
+        }
+      }
+
+      await saveProjectFile(
+        projectId,
+        typPath,
+        contentRef.current,
+        pdfContent || undefined
+      );
       setLastSaved(new Date());
       setHasChanges(false);
     } catch {

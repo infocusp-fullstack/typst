@@ -5,9 +5,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Edit3, FileText, MoreVertical, Trash2 } from "lucide-react";
+import { Edit3, FileText, MoreVertical, Trash2, Edit } from "lucide-react";
 import { Project } from "@/types";
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { getThumbnailUrl } from "@/lib/thumbnailService";
 
 interface ProjectListItemProps {
   project: Project;
@@ -23,6 +24,9 @@ const ProjectListItem = React.memo(
     onDelete,
     isNavigating = false,
   }: ProjectListItemProps) => {
+    const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+    const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
+
     const formatDate = (date: string) => {
       return new Date(date).toLocaleDateString("en-US", {
         month: "short",
@@ -32,6 +36,25 @@ const ProjectListItem = React.memo(
         minute: "2-digit",
       });
     };
+
+    // Load thumbnail if available
+    useEffect(() => {
+      if (project.thumbnail_path) {
+        setIsLoadingThumbnail(true);
+        getThumbnailUrl(project.thumbnail_path)
+          .then((url) => {
+            setThumbnailUrl(url);
+          })
+          .catch((error) => {
+            console.error("Failed to load thumbnail:", error);
+          })
+          .finally(() => {
+            setIsLoadingThumbnail(false);
+          });
+      } else {
+        setThumbnailUrl(null);
+      }
+    }, [project.thumbnail_path]);
 
     return (
       <div
@@ -45,9 +68,24 @@ const ProjectListItem = React.memo(
         )}
 
         <div className="flex-shrink-0">
-          <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-            <FileText className="h-5 w-5 text-primary" />
-          </div>
+          {thumbnailUrl ? (
+            <div className="w-10 h-10 rounded-lg overflow-hidden border">
+              <img
+                src={thumbnailUrl}
+                alt={`Preview of ${project.title}`}
+                className="w-full h-full object-cover"
+                onError={() => setThumbnailUrl(null)}
+              />
+            </div>
+          ) : (
+            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+              {isLoadingThumbnail ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              ) : (
+                <FileText className="h-5 w-5 text-primary" />
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex-1 min-w-0">
@@ -63,7 +101,7 @@ const ProjectListItem = React.memo(
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <div className="w-10 h-10 flex items-center justify-center hover:bg-muted rounded-full cursor-pointer">
-                <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                <MoreVertical className="h-5 w-5 text-muted-foreground" />
               </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -76,6 +114,23 @@ const ProjectListItem = React.memo(
               >
                 <Edit3 className="mr-2 h-4 w-4" />
                 Open
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // This will be handled by the parent component
+                  const event = new CustomEvent("rename-project", {
+                    detail: {
+                      projectId: project.id,
+                      currentTitle: project.title,
+                    },
+                  });
+                  window.dispatchEvent(event);
+                }}
+                className="cursor-pointer"
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Rename
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

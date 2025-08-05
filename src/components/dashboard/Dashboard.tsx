@@ -7,13 +7,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, RefreshCw } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
-import { createNewProject, deleteProject } from "@/lib/projectService";
+import {
+  createNewProject,
+  deleteProject,
+  renameProject,
+} from "@/lib/projectService";
 import { Header } from "./Header";
 import { ViewToggle } from "./ViewToggle";
 import { ProjectGrid } from "./ProjectGrid";
 import { ProjectList } from "./ProjectList";
 import { useInfiniteScroll } from "@/hooks/useInfininiteScroll";
 import { NewDocumentCard } from "./NewDocumentCard";
+import { RenameModal } from "./RenameModal";
 
 interface DashboardProps {
   user: User;
@@ -25,8 +30,18 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
-    null,
+    null
   );
+  const [renameModal, setRenameModal] = useState<{
+    isOpen: boolean;
+    projectId: string;
+    currentTitle: string;
+  }>({
+    isOpen: false,
+    projectId: "",
+    currentTitle: "",
+  });
+
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const { theme, toggleTheme } = useTheme();
@@ -65,6 +80,30 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     }
   }, []);
 
+  // Listen for rename events
+  useEffect(() => {
+    const handleRenameEvent = (event: CustomEvent) => {
+      const { projectId, currentTitle } = event.detail;
+      setRenameModal({
+        isOpen: true,
+        projectId,
+        currentTitle,
+      });
+    };
+
+    window.addEventListener(
+      "rename-project",
+      handleRenameEvent as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "rename-project",
+        handleRenameEvent as EventListener
+      );
+    };
+  }, []);
+
   const handleViewChange = (newView: "grid" | "list") => {
     setViewMode(newView);
     localStorage.setItem("dashboard-view-mode", newView);
@@ -89,7 +128,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
     const title = prompt(
       "What would you like to name your document?",
-      "My New Document",
+      "My New Document"
     );
     if (!title?.trim()) return;
 
@@ -105,7 +144,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       router.push(`/editor/${newProject.id}`);
     } catch (err) {
       alert(
-        `Failed to create document: ${err instanceof Error ? err.message : "Unknown error"}`,
+        `Failed to create document: ${err instanceof Error ? err.message : "Unknown error"}`
       );
     } finally {
       setIsCreating(false);
@@ -117,7 +156,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       setNavigatingToEditor(projectId);
       router.push(`/editor/${projectId}`);
     },
-    [router],
+    [router]
   );
 
   const handleDeleteProject = useCallback(
@@ -133,11 +172,28 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         refresh();
       } catch (err) {
         alert(
-          `Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`,
+          `Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`
         );
       }
     },
-    [refresh],
+    [refresh]
+  );
+
+  const handleRenameProject = useCallback(
+    async (projectId: string, newTitle: string) => {
+      try {
+        await renameProject(projectId, newTitle);
+
+        // Refresh the list to ensure consistency
+        refresh();
+      } catch (err) {
+        alert(
+          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`
+        );
+        throw err;
+      }
+    },
+    []
   );
 
   const handleSignOut = useCallback(async () => {
@@ -204,7 +260,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         searchQuery={searchQuery}
         onSearchChange={useCallback(
           (query: string) => setSearchQuery(query),
-          [],
+          []
         )}
         onToggleTheme={toggleTheme}
         onSignOut={handleSignOut}
@@ -323,6 +379,19 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           </div>
         </div>
       </main>
+
+      {/* Rename Modal */}
+      <RenameModal
+        isOpen={renameModal.isOpen}
+        onClose={() =>
+          setRenameModal({ isOpen: false, projectId: "", currentTitle: "" })
+        }
+        onRename={(newTitle) =>
+          handleRenameProject(renameModal.projectId, newTitle)
+        }
+        currentTitle={renameModal.currentTitle}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

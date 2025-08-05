@@ -4,6 +4,7 @@ CREATE TABLE projects (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   typ_path TEXT NOT NULL,
+  thumbnail_path TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

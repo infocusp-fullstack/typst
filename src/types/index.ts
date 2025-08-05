@@ -3,6 +3,7 @@ export type Project = {
   user_id: string;
   title: string;
   typ_path: string;
+  thumbnail_path?: string;
   created_at: string; // ISO timestamp string
   updated_at: string; // ISO timestamp string
 };

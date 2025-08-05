@@ -45,7 +45,9 @@ export const Toolbar = memo(function Toolbar({
           {projectTitle && (
             <>
               <span className="text-muted-foreground">•</span>
-              <span className="text-sm">{projectTitle}</span>
+              <span className="text-sm truncate max-w-xs overflow-hidden whitespace-nowrap">
+                {projectTitle}
+              </span>
             </>
           )}
         </div>
