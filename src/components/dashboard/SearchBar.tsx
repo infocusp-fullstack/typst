@@ -14,7 +14,7 @@ export function SearchBar({ value, onChange }: SearchBarProps) {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         const searchInput = document.getElementById(
-          "search-input"
+          "search-input",
         ) as HTMLInputElement;
         if (searchInput) {
           searchInput.focus();

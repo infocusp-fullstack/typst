@@ -1,30 +1,74 @@
 import { getBrowserClient } from "./supabaseClient";
 import { Project } from "@/types";
 
-// Default content for new documents
 const DEFAULT_CONTENT = ``;
+const PAGE_SIZE = 20;
 
-/* ---------- Fetch user projects ---------- */
-export async function fetchUserProjects(): Promise<Project[]> {
+/* ---------- Fetch user projects with pagination ---------- */
+export async function fetchUserProjects(
+  page: number = 0,
+  pageSize: number = PAGE_SIZE
+): Promise<{ projects: Project[]; hasMore: boolean; totalCount: number }> {
   try {
     const supabase = getBrowserClient();
-    const { data, error } = await supabase
+
+    const { data, count, error } = await supabase
       .from("projects")
-      .select("*")
-      .order("updated_at", { ascending: false });
+      .select("*", { count: "exact" }) // 👈 count included in same query
+      .order("updated_at", { ascending: false })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (error) {
       throw new Error(`Failed to fetch projects: ${error.message}`);
     }
 
-    return (data as unknown as Project[]) || [];
+    const projects = (data as Project[]) || [];
+    const hasMore = (page + 1) * pageSize < (count || 0);
+
+    return {
+      projects,
+      hasMore,
+      totalCount: count || 0,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
+export async function searchUserProjects(
+  searchQuery: string,
+  page: number = 0,
+  pageSize: number = PAGE_SIZE
+): Promise<{ projects: Project[]; hasMore: boolean; totalCount: number }> {
+  try {
+    const supabase = getBrowserClient();
+
+    const { data, count, error } = await supabase
+      .from("projects")
+      .select("*", { count: "exact" }) // 👈 count with data
+      .ilike("title", `%${searchQuery.trim()}%`)
+      .order("updated_at", { ascending: false })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
+
+    if (error) {
+      throw new Error(`Failed to search projects: ${error.message}`);
+    }
+
+    const projects = (data as Project[]) || [];
+    const hasMore = (page + 1) * pageSize < (count || 0);
+
+    return {
+      projects,
+      hasMore,
+      totalCount: count || 0,
+    };
   } catch (error) {
     throw error;
   }
 }
 
 export async function fetchUserProjectById(
-  projectId: string,
+  projectId: string
 ): Promise<Project | null> {
   try {
     const supabase = getBrowserClient();
@@ -77,7 +121,7 @@ export async function loadProjectFile(path: string): Promise<string> {
 /* ---------- Create new project with initial file ---------- */
 export async function createNewProject(
   userId: string,
-  title: string = "Untitled Document",
+  title: string = "Untitled Document"
 ): Promise<Project> {
   try {
     const projectId = crypto.randomUUID();
@@ -116,16 +160,17 @@ export async function createNewProject(
       throw new Error(`File creation failed: ${fileError.message}`);
     }
 
-    return data as unknown as Project;
+    return data as Project;
   } catch (error) {
     throw error;
   }
 }
+
 /* ---------- Save project file ---------- */
 export async function saveProjectFile(
   projectId: string,
   typPath: string,
-  code: string,
+  code: string
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();
@@ -161,7 +206,7 @@ export async function saveProjectFile(
 /* ---------- Delete project ---------- */
 export async function deleteProject(
   projectId: string,
-  typPath: string,
+  typPath: string
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();
