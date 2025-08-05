@@ -12,11 +12,13 @@ import {
   fetchUserProjects,
   createNewProject,
   deleteProject,
+  renameProject,
 } from "@/lib/projectService";
 import { Header } from "./Header";
 import { ViewToggle } from "./ViewToggle";
 import { ProjectGrid } from "./ProjectGrid";
 import { ProjectList } from "./ProjectList";
+import { RenameModal } from "./RenameModal";
 
 interface DashboardProps {
   user: User;
@@ -32,6 +34,15 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
     null
   );
+  const [renameModal, setRenameModal] = useState<{
+    isOpen: boolean;
+    projectId: string;
+    currentTitle: string;
+  }>({
+    isOpen: false,
+    projectId: "",
+    currentTitle: "",
+  });
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
@@ -46,6 +57,24 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     if (savedView && (savedView === "grid" || savedView === "list")) {
       setViewMode(savedView);
     }
+  }, []);
+
+  // Listen for rename events
+  useEffect(() => {
+    const handleRenameEvent = (event: CustomEvent) => {
+      const { projectId, currentTitle } = event.detail;
+      setRenameModal({
+        isOpen: true,
+        projectId,
+        currentTitle,
+      });
+    };
+
+    window.addEventListener('rename-project', handleRenameEvent as EventListener);
+    
+    return () => {
+      window.removeEventListener('rename-project', handleRenameEvent as EventListener);
+    };
   }, []);
 
   const handleViewChange = (newView: "grid" | "list") => {
@@ -137,6 +166,23 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         alert(
           `Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`
         );
+      }
+    },
+    []
+  );
+
+  const handleRenameProject = useCallback(
+    async (projectId: string, newTitle: string) => {
+      try {
+        const updatedProject = await renameProject(projectId, newTitle);
+        setProjects((prev) =>
+          prev.map((p) => (p.id === projectId ? updatedProject : p))
+        );
+      } catch (err) {
+        alert(
+          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`
+        );
+        throw err;
       }
     },
     []
@@ -324,6 +370,15 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           </div>
         </div>
       </main>
+
+      {/* Rename Modal */}
+      <RenameModal
+        isOpen={renameModal.isOpen}
+        onClose={() => setRenameModal({ isOpen: false, projectId: "", currentTitle: "" })}
+        onRename={(newTitle) => handleRenameProject(renameModal.projectId, newTitle)}
+        currentTitle={renameModal.currentTitle}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

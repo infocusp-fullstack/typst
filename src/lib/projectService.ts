@@ -1,5 +1,9 @@
-import { getBrowserClient } from "./supabaseClient";
+import { getBrowserClient } from "@/lib/supabaseClient";
 import { Project } from "@/types";
+import {
+  generateAndUploadThumbnail,
+  deleteThumbnail,
+} from "@/lib/thumbnailService";
 
 // Default content for new documents
 const DEFAULT_CONTENT = ``;
@@ -24,7 +28,7 @@ export async function fetchUserProjects(): Promise<Project[]> {
 }
 
 export async function fetchUserProjectById(
-  projectId: string,
+  projectId: string
 ): Promise<Project | null> {
   try {
     const supabase = getBrowserClient();
@@ -77,7 +81,7 @@ export async function loadProjectFile(path: string): Promise<string> {
 /* ---------- Create new project with initial file ---------- */
 export async function createNewProject(
   userId: string,
-  title: string = "Untitled Document",
+  title: string = "Untitled Document"
 ): Promise<Project> {
   try {
     const projectId = crypto.randomUUID();
@@ -126,6 +130,7 @@ export async function saveProjectFile(
   projectId: string,
   typPath: string,
   code: string,
+  pdfContent?: Uint8Array<ArrayBufferLike>
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();
@@ -142,17 +147,59 @@ export async function saveProjectFile(
       throw new Error(`File upload failed: ${uploadError.message}`);
     }
 
-    // Update database timestamp
-    const { error: updateError } = await supabase
+    // Generate and upload thumbnail if PDF content is provided
+    if (pdfContent) {
+      try {
+        const thumbnailPath = `${typPath.replace(".typ", "_thumb.png")}`;
+        await generateAndUploadThumbnail(pdfContent, thumbnailPath);
+
+        // Update database with thumbnail path
+        const { error: thumbnailUpdateError } = await supabase
+          .from("projects")
+          .update({
+            thumbnail_path: thumbnailPath,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", projectId);
+
+        if (thumbnailUpdateError) {
+          console.error(
+            "Failed to update thumbnail path:",
+            thumbnailUpdateError
+          );
+        }
+      } catch (thumbnailError) {
+        console.error("Thumbnail generation failed:", thumbnailError);
+      }
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
+/* ---------- Rename project ---------- */
+export async function renameProject(
+  projectId: string,
+  newTitle: string
+): Promise<Project> {
+  try {
+    const supabase = getBrowserClient();
+
+    const { data, error } = await supabase
       .from("projects")
       .update({
+        title: newTitle,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", projectId);
+      .eq("id", projectId)
+      .select()
+      .single();
 
-    if (updateError) {
-      // Non-critical error, don't throw
+    if (error) {
+      throw new Error(`Failed to rename project: ${error.message}`);
     }
+
+    return data as Project;
   } catch (error) {
     throw error;
   }
@@ -161,10 +208,17 @@ export async function saveProjectFile(
 /* ---------- Delete project ---------- */
 export async function deleteProject(
   projectId: string,
-  typPath: string,
+  typPath: string
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();
+
+    // Get project to find thumbnail path
+    const { data: project } = await supabase
+      .from("projects")
+      .select("thumbnail_path")
+      .eq("id", projectId)
+      .single();
 
     // Delete file from storage first
     const { error: storageError } = await supabase.storage
@@ -173,6 +227,15 @@ export async function deleteProject(
 
     if (storageError) {
       throw new Error(`Storage delete failed: ${storageError.message}`);
+    }
+
+    // Delete thumbnail if it exists
+    if (
+      project?.thumbnail_path &&
+      typeof project.thumbnail_path === "string" &&
+      project.thumbnail_path.trim() !== ""
+    ) {
+      await deleteThumbnail(project.thumbnail_path);
     }
 
     // Delete database entry

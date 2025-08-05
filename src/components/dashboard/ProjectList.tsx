@@ -19,6 +19,7 @@ const ProjectList = React.memo(
             project={project}
             onOpen={() => onOpenProject(project.id)}
             onDelete={() => onDeleteProject(project.id, project.typ_path)}
+
             isNavigating={navigatingToEditor === project.id}
           />
         ))}
