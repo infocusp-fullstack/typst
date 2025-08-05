@@ -11,15 +11,9 @@ export async function fetchUserProjects(
   try {
     const supabase = getBrowserClient();
 
-    // Get total count first
-    const { count } = await supabase
+    const { data, count, error } = await supabase
       .from("projects")
-      .select("*", { count: "exact", head: true });
-
-    // Fetch paginated data
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
+      .select("*", { count: "exact" }) // 👈 count included in same query
       .order("updated_at", { ascending: false })
       .range(page * pageSize, (page + 1) * pageSize - 1);
 
@@ -27,7 +21,7 @@ export async function fetchUserProjects(
       throw new Error(`Failed to fetch projects: ${error.message}`);
     }
 
-    const projects = (data as unknown as Project[]) || [];
+    const projects = (data as Project[]) || [];
     const hasMore = (page + 1) * pageSize < (count || 0);
 
     return {
@@ -39,6 +33,7 @@ export async function fetchUserProjects(
     throw error;
   }
 }
+
 export async function searchUserProjects(
   searchQuery: string,
   page: number = 0,
@@ -47,41 +42,18 @@ export async function searchUserProjects(
   try {
     const supabase = getBrowserClient();
 
-    // First, get the count with the search filter
-    let countQuery = supabase
+    const { data, count, error } = await supabase
       .from("projects")
-      .select("*", { count: "exact", head: true });
-
-    if (searchQuery.trim()) {
-      countQuery = countQuery.ilike("title", `%${searchQuery.trim()}%`);
-    }
-
-    const { count, error: countError } = await countQuery;
-
-    if (countError) {
-      throw new Error(`Failed to get count: ${countError.message}`);
-    }
-
-    // Then get the paginated data
-    let dataQuery = supabase
-      .from("projects")
-      .select("*")
-      .order("updated_at", { ascending: false });
-
-    if (searchQuery.trim()) {
-      dataQuery = dataQuery.ilike("title", `%${searchQuery.trim()}%`);
-    }
-
-    const { data, error } = await dataQuery.range(
-      page * pageSize,
-      (page + 1) * pageSize - 1,
-    );
+      .select("*", { count: "exact" }) // 👈 count with data
+      .ilike("title", `%${searchQuery.trim()}%`)
+      .order("updated_at", { ascending: false })
+      .range(page * pageSize, (page + 1) * pageSize - 1);
 
     if (error) {
       throw new Error(`Failed to search projects: ${error.message}`);
     }
 
-    const projects = (data as unknown as Project[]) || [];
+    const projects = (data as Project[]) || [];
     const hasMore = (page + 1) * pageSize < (count || 0);
 
     return {
@@ -93,6 +65,7 @@ export async function searchUserProjects(
     throw error;
   }
 }
+
 export async function fetchUserProjectById(
   projectId: string,
 ): Promise<Project | null> {
@@ -186,11 +159,12 @@ export async function createNewProject(
       throw new Error(`File creation failed: ${fileError.message}`);
     }
 
-    return data as unknown as Project;
+    return data as Project;
   } catch (error) {
     throw error;
   }
 }
+
 /* ---------- Save project file ---------- */
 export async function saveProjectFile(
   projectId: string,

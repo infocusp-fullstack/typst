@@ -25,7 +25,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
-    null
+    null,
   );
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
@@ -47,7 +47,6 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     isLoading,
     isLoadingMore,
     error,
-    hasMore,
     totalCount,
     refresh,
     observerRef,
@@ -90,7 +89,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
     const title = prompt(
       "What would you like to name your document?",
-      "My New Document"
+      "My New Document",
     );
     if (!title?.trim()) return;
 
@@ -106,7 +105,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       router.push(`/editor/${newProject.id}`);
     } catch (err) {
       alert(
-        `Failed to create document: ${err instanceof Error ? err.message : "Unknown error"}`
+        `Failed to create document: ${err instanceof Error ? err.message : "Unknown error"}`,
       );
     } finally {
       setIsCreating(false);
@@ -118,7 +117,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       setNavigatingToEditor(projectId);
       router.push(`/editor/${projectId}`);
     },
-    [router]
+    [router],
   );
 
   const handleDeleteProject = useCallback(
@@ -134,11 +133,11 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         refresh();
       } catch (err) {
         alert(
-          `Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`
+          `Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`,
         );
       }
     },
-    [refresh]
+    [refresh],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -194,11 +193,6 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           <span className="text-sm">Loading more...</span>
         </div>
       )}
-      {!hasMore && projects.length > 0 && (
-        <p className="text-sm text-muted-foreground">
-          All {totalCount} documents loaded
-        </p>
-      )}
     </div>
   );
 
@@ -210,7 +204,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         searchQuery={searchQuery}
         onSearchChange={useCallback(
           (query: string) => setSearchQuery(query),
-          []
+          [],
         )}
         onToggleTheme={toggleTheme}
         onSignOut={handleSignOut}
