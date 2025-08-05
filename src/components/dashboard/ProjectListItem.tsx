@@ -148,7 +148,7 @@ const ProjectListItem = React.memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 ProjectListItem.displayName = "ProjectListItem";

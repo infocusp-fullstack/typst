@@ -156,7 +156,7 @@ const ProjectCard = React.memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 ProjectCard.displayName = "ProjectCard";

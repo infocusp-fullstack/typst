@@ -10,7 +10,12 @@ interface ProjectGridProps {
 }
 
 const ProjectGrid = React.memo(
-  ({ projects, onOpenProject, onDeleteProject, navigatingToEditor }: ProjectGridProps) => {
+  ({
+    projects,
+    onOpenProject,
+    onDeleteProject,
+    navigatingToEditor,
+  }: ProjectGridProps) => {
     return (
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {projects.map((project) => (

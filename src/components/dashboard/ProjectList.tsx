@@ -10,7 +10,12 @@ interface ProjectListProps {
 }
 
 const ProjectList = React.memo(
-  ({ projects, onOpenProject, onDeleteProject, navigatingToEditor }: ProjectListProps) => {
+  ({
+    projects,
+    onOpenProject,
+    onDeleteProject,
+    navigatingToEditor,
+  }: ProjectListProps) => {
     return (
       <div className="space-y-2">
         {projects.map((project) => (
@@ -25,7 +30,7 @@ const ProjectList = React.memo(
         ))}
       </div>
     );
-  }
+  },
 );
 
 ProjectList.displayName = "ProjectList";
