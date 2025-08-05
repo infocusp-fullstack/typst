@@ -7,9 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Plus, RefreshCw } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
-import { Project } from "@/types";
 import {
-  fetchUserProjects,
   createNewProject,
   deleteProject,
   renameProject,
@@ -184,27 +182,10 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const handleRenameProject = useCallback(
     async (projectId: string, newTitle: string) => {
       try {
-        const updatedProject = await renameProject(projectId, newTitle);
-        setProjects((prev) =>
-          prev.map((p) => (p.id === projectId ? updatedProject : p))
-        );
-      } catch (err) {
-        alert(
-          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`
-        );
-        throw err;
-      }
-    },
-    []
-  );
+        await renameProject(projectId, newTitle);
 
-  const handleRenameProject = useCallback(
-    async (projectId: string, newTitle: string) => {
-      try {
-        const updatedProject = await renameProject(projectId, newTitle);
-        setProjects((prev) =>
-          prev.map((p) => (p.id === projectId ? updatedProject : p))
-        );
+        // Refresh the list to ensure consistency
+        refresh();
       } catch (err) {
         alert(
           `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`
