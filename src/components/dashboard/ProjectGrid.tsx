@@ -5,7 +5,7 @@ import { Project } from "@/types";
 interface ProjectGridProps {
   projects: Project[];
   onOpenProject: (projectId: string) => void;
-  onDeleteProject: (projectId: string, typPath: string) => void;
+  onDeleteProject: (projectId: string, typPath: string, thumbnail_path?: string) => void;
   navigatingToEditor: string | null;
 }
 
@@ -23,7 +23,7 @@ const ProjectGrid = React.memo(
             key={project.id}
             project={project}
             onOpen={() => onOpenProject(project.id)}
-            onDelete={() => onDeleteProject(project.id, project.typ_path)}
+            onDelete={() => onDeleteProject(project.id, project.typ_path, project.thumbnail_path)}
 
             isNavigating={navigatingToEditor === project.id}
           />

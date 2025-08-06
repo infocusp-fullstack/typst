@@ -1,9 +1,6 @@
 import { getBrowserClient } from "@/lib/supabaseClient";
 import { Project } from "@/types";
-import {
-  generateAndUploadThumbnail,
-  deleteThumbnail,
-} from "@/lib/thumbnailService";
+import { generateAndUploadThumbnail } from "@/lib/thumbnailService";
 
 const DEFAULT_CONTENT = ``;
 const PAGE_SIZE = 20;
@@ -253,46 +250,40 @@ export async function renameProject(
 /* ---------- Delete project ---------- */
 export async function deleteProject(
   projectId: string,
-  typPath: string
+  typPath: string,
+  thumbnail_path?: string
 ): Promise<void> {
   try {
     const supabase = getBrowserClient();
 
-    // Get project to find thumbnail path
-    const { data: project } = await supabase
-      .from("projects")
-      .select("thumbnail_path")
-      .eq("id", projectId)
-      .single();
+    const filesToDelete = [typPath];
+    if (thumbnail_path && thumbnail_path.trim() !== "") {
+      filesToDelete.push(thumbnail_path);
+    }
 
-    // Delete file from storage first
+    // Delete all files from storage in one call
     const { error: storageError } = await supabase.storage
       .from("user-projects")
-      .remove([typPath]);
+      .remove(filesToDelete);
 
     if (storageError) {
-      throw new Error(`Storage delete failed: ${storageError.message}`);
+      throw new Error("Storage files deletion failed");
     }
 
-    // Delete thumbnail if it exists
-    if (
-      project?.thumbnail_path &&
-      typeof project.thumbnail_path === "string" &&
-      project.thumbnail_path.trim() !== ""
-    ) {
-      await deleteThumbnail(project.thumbnail_path);
-    }
-
-    // Delete database entry
+    // Delete database entry (this will cascade delete any related data)
     const { error: dbError } = await supabase
       .from("projects")
       .delete()
       .eq("id", projectId);
 
     if (dbError) {
-      throw new Error(`Database delete failed: ${dbError.message}`);
+      console.log(`Database delete failed: ${dbError.message}`);
+      throw new Error("Failed to delete");
     }
+
+    console.log(`Project ${projectId} deleted successfully`);
   } catch (error) {
+    console.error("Project deletion failed:", error);
     throw error;
   }
 }

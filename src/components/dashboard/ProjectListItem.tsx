@@ -89,9 +89,7 @@ const ProjectListItem = React.memo(
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-medium truncate text-sm mb-1">
-            {project.title.charAt(0).toUpperCase() + project.title.slice(1)}
-          </h3>
+          <h3 className="font-medium truncate text-sm mb-1">{project.title}</h3>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>Last Modified {formatDate(project.updated_at)}</span>
           </div>
@@ -148,7 +146,7 @@ const ProjectListItem = React.memo(
         </div>
       </div>
     );
-  },
+  }
 );
 
 ProjectListItem.displayName = "ProjectListItem";

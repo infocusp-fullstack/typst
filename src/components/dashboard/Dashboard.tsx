@@ -160,14 +160,14 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   );
 
   const handleDeleteProject = useCallback(
-    async (projectId: string, typPath: string) => {
+    async (projectId: string, typPath: string, thumbnail_path?: string) => {
       if (
         !confirm("Delete this project forever? This action cannot be undone.")
       )
         return;
 
       try {
-        await deleteProject(projectId, typPath);
+        await deleteProject(projectId, typPath, thumbnail_path);
         // Refresh the list to ensure consistency
         refresh();
       } catch (err) {
@@ -372,7 +372,6 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                   />
                 )}
 
-                {/* Load More Indicator */}
                 <LoadMoreIndicator />
               </>
             )}
