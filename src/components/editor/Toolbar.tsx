@@ -1,8 +1,10 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, Download, Sun, Moon } from "lucide-react";
+import { ArrowLeft, Save, Download, Sun, Moon, Share2 } from "lucide-react";
+import { ShareModal } from "./ShareModal";
+import { User } from "@supabase/supabase-js";
 
 export const Toolbar = memo(function Toolbar({
   projectTitle,
@@ -16,6 +18,9 @@ export const Toolbar = memo(function Toolbar({
   toggleTheme,
   isCompiling,
   isTypstReady,
+  projectId,
+  user,
+  isOwner,
 }: {
   projectTitle?: string;
   isSaving: boolean;
@@ -28,7 +33,12 @@ export const Toolbar = memo(function Toolbar({
   toggleTheme: () => void;
   isCompiling: boolean;
   isTypstReady: boolean;
+  projectId: string;
+  user: User;
+  isOwner: boolean;
 }) {
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+
   return (
     <div className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
       <div className="flex h-14 items-center gap-4 px-4">
@@ -90,6 +100,18 @@ export const Toolbar = memo(function Toolbar({
             Export PDF
           </Button>
 
+          {/* Share button - only visible to owner */}
+          {isOwner && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShareModalOpen(true)}
+            >
+              <Share2 className="mr-2 h-4 w-4" />
+              Share
+            </Button>
+          )}
+
           <Button variant="ghost" size="icon" onClick={toggleTheme}>
             {theme === "dark" ? (
               <Sun className="h-4 w-4" />
@@ -99,6 +121,14 @@ export const Toolbar = memo(function Toolbar({
           </Button>
         </div>
       </div>
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={shareModalOpen}
+        onClose={() => setShareModalOpen(false)}
+        projectId={projectId}
+        currentUserId={user.id}
+      />
     </div>
   );
 });

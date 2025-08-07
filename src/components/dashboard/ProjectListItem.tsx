@@ -5,16 +5,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Edit3, FileText, MoreVertical, Trash2, Edit } from "lucide-react";
-import { Project } from "@/types";
+import {
+  Edit3,
+  FileText,
+  MoreVertical,
+  Trash2,
+  Edit,
+  Share2,
+  Users,
+} from "lucide-react";
+import { ProjectWithShares } from "@/types";
 import React, { useState, useEffect } from "react";
 import { getThumbnailUrl } from "@/lib/thumbnailService";
+import { User } from "@supabase/supabase-js";
 
 interface ProjectListItemProps {
-  project: Project;
+  project: ProjectWithShares;
   onOpen: () => void;
   onDelete: () => void;
   isNavigating?: boolean;
+  currentUser: User;
+  isCXO: boolean;
 }
 
 const ProjectListItem = React.memo(
@@ -23,9 +34,13 @@ const ProjectListItem = React.memo(
     onOpen,
     onDelete,
     isNavigating = false,
+    currentUser,
+    isCXO,
   }: ProjectListItemProps) => {
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
     const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
+    const [canDelete, setCanDelete] = useState(false);
+    const [canRename, setCanRename] = useState(false);
 
     const formatDate = (date: string) => {
       return new Date(date).toLocaleDateString("en-US", {
@@ -36,6 +51,17 @@ const ProjectListItem = React.memo(
         minute: "2-digit",
       });
     };
+
+    const isOwner = project.user_id === currentUser.id;
+    const isSharedWith =
+      project.project_shares?.some((t) => currentUser.id === t.shared_with) ??
+      false;
+
+    // Check permissions
+    useEffect(() => {
+      setCanDelete(isCXO || isOwner);
+      setCanRename(isCXO || isOwner || isSharedWith);
+    }, [project.id, currentUser.id, isOwner]);
 
     // Load thumbnail if available
     useEffect(() => {
@@ -92,6 +118,14 @@ const ProjectListItem = React.memo(
           <h3 className="font-medium truncate text-sm mb-1">{project.title}</h3>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>Last Modified {formatDate(project.updated_at)}</span>
+            <div className="flex items-center gap-1">
+              {isOwner ? (
+                <Users className="h-3 w-3" />
+              ) : (
+                <Share2 className="h-3 w-3" />
+              )}
+              <span>{isOwner ? "Owned" : "Shared"}</span>
+            </div>
           </div>
         </div>
 
@@ -113,34 +147,40 @@ const ProjectListItem = React.memo(
                 <Edit3 className="mr-2 h-4 w-4" />
                 Open
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // This will be handled by the parent component
-                  const event = new CustomEvent("rename-project", {
-                    detail: {
-                      projectId: project.id,
-                      currentTitle: project.title,
-                    },
-                  });
-                  window.dispatchEvent(event);
-                }}
-                className="cursor-pointer"
-              >
-                <Edit className="mr-2 h-4 w-4" />
-                Rename
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-                className="text-destructive cursor-pointer"
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
+              {canRename && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // This will be handled by the parent component
+                    const event = new CustomEvent("rename-project", {
+                      detail: {
+                        projectId: project.id,
+                        currentTitle: project.title,
+                      },
+                    });
+                    window.dispatchEvent(event);
+                  }}
+                  className="cursor-pointer"
+                >
+                  <Edit className="mr-2 h-4 w-4" />
+                  Rename
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <>
+                  {canRename && <DropdownMenuSeparator />}
+                  <DropdownMenuItem
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                    }}
+                    className="text-destructive cursor-pointer"
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

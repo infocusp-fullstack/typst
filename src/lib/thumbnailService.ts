@@ -1,4 +1,4 @@
-import { getBrowserClient } from "./supabaseClient";
+import { getAdminClient } from "./supabaseClient";
 import { convertPdfToBase64 } from "./pdfToImageService";
 
 export interface ThumbnailOptions {
@@ -26,7 +26,7 @@ export async function generateAndUploadThumbnail(
 
     if (pdfContent instanceof Uint8Array) {
       // Convert PDF to blob
-      const pdfBlob = new Blob([pdfContent], { type: "application/pdf" });
+      const pdfBlob = new Blob([pdfContent as unknown as BlobPart], { type: "application/pdf" });
 
       // Convert PDF to base64 image
       const base64Image = await convertPdfToBase64(pdfBlob, {
@@ -46,7 +46,7 @@ export async function generateAndUploadThumbnail(
       );
 
       // Upload to Supabase
-      const supabase = getBrowserClient();
+      const supabase = getAdminClient();
       const { error } = await supabase.storage
         .from("user-projects")
         .upload(thumbnailPath, imageBlob, {
@@ -115,7 +115,7 @@ async function createFallbackThumbnail(
     });
 
     // Upload to Supabase
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
     const { error } = await supabase.storage
       .from("user-projects")
       .upload(thumbnailPath, blob, {
@@ -141,7 +141,7 @@ export async function getThumbnailUrl(
   thumbnailPath: string
 ): Promise<string | null> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
     const { data, error } = await supabase.storage
       .from("user-projects")
       .createSignedUrl(thumbnailPath, 3600); // 1 hour
@@ -162,7 +162,7 @@ export async function getThumbnailUrl(
  */
 export async function deleteThumbnail(thumbnailPath: string): Promise<void> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
     const { error } = await supabase.storage
       .from("user-projects")
       .remove([thumbnailPath]);
