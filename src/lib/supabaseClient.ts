@@ -1,8 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Update the getSupabaseUrl and getSupabaseAnonKey functions to handle environment variables better
-
-// Replace the getSupabaseUrl function with:
+// Get Supabase URL
 const getSupabaseUrl = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!url) {
@@ -12,27 +10,43 @@ const getSupabaseUrl = () => {
   return url;
 };
 
-// Replace the getSupabaseAnonKey function with:
-const getSupabaseAnonKey = () => {
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// // Replace the getSupabaseAnonKey function with:
+// const getSupabaseAnonKey = () => {
+//   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+//   if (!key) {
+//     console.warn("NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined");
+//     return "public-anon-key"; // Fallback for development
+//   }
+//   return key;
+// };
+
+// Get service role key for admin operations
+const getServiceRoleKey = () => {
+  const key = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
   if (!key) {
-    console.warn("NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined");
-    return "public-anon-key"; // Fallback for development
+    console.warn("SUPABASE_SERVICE_ROLE_KEY is not defined");
+    return null;
   }
   return key;
 };
 
-// Create a single supabase client for the browser
-let browserClient: ReturnType<typeof createClient> | null = null;
+// Create single admin client for all operations
+let adminClient: ReturnType<typeof createClient> | null = null;
 
-export const getBrowserClient = () => {
-  if (browserClient) return browserClient;
+export const getAdminClient = () => {
+  if (adminClient) return adminClient;
 
   try {
     const supabaseUrl = getSupabaseUrl();
-    const supabaseAnonKey = getSupabaseAnonKey();
+    const serviceRoleKey = getServiceRoleKey();
 
-    browserClient = createClient(supabaseUrl, supabaseAnonKey, {
+    if (!serviceRoleKey) {
+      throw new Error(
+        "SUPABASE_SERVICE_ROLE_KEY is required for admin operations"
+      );
+    }
+
+    adminClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
@@ -40,40 +54,34 @@ export const getBrowserClient = () => {
       },
     });
 
-    return browserClient;
+    return adminClient;
   } catch (error) {
-    console.error("Error creating Supabase client:", error);
+    console.error("Error creating Supabase admin client:", error);
     throw error;
   }
 };
 
-// Update the getServerClient function to handle environment variables better:
-export const getServerClient = () => {
-  try {
-    // Server-side variables should not have NEXT_PUBLIC_ prefix
-    const supabaseUrl =
-      process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// Create a single supabase client for the browser
+// let browserClient: ReturnType<typeof createClient> | null = null;
 
-    if (!supabaseUrl) {
-      console.warn("SUPABASE_URL is not defined");
-      throw new Error("SUPABASE_URL is required");
-    }
+// export const getBrowserClient = () => {
+//   if (browserClient) return browserClient;
 
-    if (!supabaseAnonKey) {
-      console.warn("SUPABASE_ANON_KEY is not defined");
-      throw new Error("SUPABASE_ANON_KEY is required");
-    }
+//   try {
+//     const supabaseUrl = getSupabaseUrl();
+//     const supabaseAnonKey = getSupabaseAnonKey();
 
-    return createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    });
-  } catch (error) {
-    console.error("Error creating Supabase server client:", error);
-    throw error;
-  }
-};
+//     browserClient = createClient(supabaseUrl, supabaseAnonKey, {
+//       auth: {
+//         persistSession: true,
+//         autoRefreshToken: true,
+//         detectSessionInUrl: true,
+//       },
+//     });
+
+//     return browserClient;
+//   } catch (error) {
+//     console.error("Error creating Supabase client:", error);
+//     throw error;
+//   }
+// };

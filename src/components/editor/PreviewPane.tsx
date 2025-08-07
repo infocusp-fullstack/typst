@@ -1,8 +1,10 @@
 "use client";
+
 import { memo, useEffect, useState } from "react";
+import { PDFContent } from "@/types";
 
 interface PreviewPaneProps {
-  content: string | Uint8Array | null;
+  content: PDFContent | string | null;
   isCompiling: boolean;
   error: string | null;
 }
@@ -16,7 +18,7 @@ export const PreviewPane = memo(function PreviewPane({
 
   useEffect(() => {
     if (content instanceof Uint8Array) {
-      const blob = new Blob([content], { type: "application/pdf" });
+      const blob = new Blob([content as unknown as BlobPart], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       setPdfUrl(url);
 

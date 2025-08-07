@@ -14,11 +14,14 @@ import {
 } from "@/lib/projectService";
 import { Header } from "./Header";
 import { ViewToggle } from "./ViewToggle";
-import { ProjectGrid } from "./ProjectGrid";
-import { ProjectList } from "./ProjectList";
+import { FilterDropdown } from "@/components/dashboard/FilterDropdown";
+import { ProjectGrid } from "@/components/dashboard/ProjectGrid";
+import { ProjectList } from "@/components/dashboard/ProjectList";
 import { useInfiniteScroll } from "@/hooks/useInfininiteScroll";
-import { NewDocumentCard } from "./NewDocumentCard";
-import { RenameModal } from "./RenameModal";
+import { NewDocumentCard } from "@/components/dashboard/NewDocumentCard";
+import { RenameModal } from "@/components/dashboard/RenameModal";
+import { FilterType } from "@/types";
+import { isCXOUser } from "@/lib/sharingService";
 
 interface DashboardProps {
   user: User;
@@ -43,9 +46,15 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   });
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [filter, setFilter] = useState<FilterType>("owned");
+  const [isCXO, setIsCXO] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
+
+  // Create user-specific localStorage keys
+  const getViewModeKey = () => `dashboard-view-mode-${user.id}`;
+  const getFilterKey = () => `dashboard-filter-${user.id}`;
 
   // Debounce search query
   useEffect(() => {
@@ -56,7 +65,42 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Use infinite scroll hook
+  // Load view and filter preferences from localStorage (user-specific)
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      // Check CXO status
+      try {
+        const cxoSstatus = await isCXOUser(user.id);
+        setIsCXO(cxoSstatus);
+      } catch (error) {
+        console.error("Error checking CXO status:", error);
+        setIsCXO(false);
+      }
+
+      // Load view mode preference
+      const savedView = localStorage.getItem(getViewModeKey()) as
+        | "grid"
+        | "list";
+      if (savedView && (savedView === "grid" || savedView === "list")) {
+        setViewMode(savedView);
+      }
+
+      // Load filter preference
+      const savedFilter = localStorage.getItem(getFilterKey()) as FilterType;
+      if (
+        savedFilter &&
+        (savedFilter === "owned" ||
+          savedFilter === "shared" ||
+          savedFilter === "all")
+      ) {
+        setFilter(savedFilter);
+      }
+    };
+
+    loadUserPreferences();
+  }, [user.id]);
+
+  // Use infinite scroll hook with filter
   const {
     projects,
     isLoading,
@@ -68,17 +112,20 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   } = useInfiniteScroll({
     searchQuery: debouncedSearchQuery,
     pageSize: 20,
+    filter,
+    userId: user.id,
+    userEmail: user.email || "",
   });
 
-  // Load view preference from localStorage
+  // Ensure data is loaded when filter changes (including from localStorage)
   useEffect(() => {
-    const savedView = localStorage.getItem("dashboard-view-mode") as
-      | "grid"
-      | "list";
-    if (savedView && (savedView === "grid" || savedView === "list")) {
-      setViewMode(savedView);
-    }
-  }, []);
+    // Small delay to ensure filter state is properly set
+    const timer = setTimeout(() => {
+      refresh();
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [filter, refresh]);
 
   // Listen for rename events
   useEffect(() => {
@@ -106,22 +153,16 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
   const handleViewChange = (newView: "grid" | "list") => {
     setViewMode(newView);
-    localStorage.setItem("dashboard-view-mode", newView);
+    localStorage.setItem(getViewModeKey(), newView);
   };
 
-  // Refresh projects when tab becomes visible
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        refresh();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [refresh]);
+  const handleFilterChange = (newFilter: FilterType) => {
+    setFilter(newFilter);
+    localStorage.setItem(getFilterKey(), newFilter);
+    // Reset search when changing filter
+    setSearchQuery("");
+    setDebouncedSearchQuery("");
+  };
 
   const handleCreateNewDocument = useCallback(async () => {
     if (isCreating) return;
@@ -252,6 +293,19 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     </div>
   );
 
+  const getFilterTitle = () => {
+    switch (filter) {
+      case "owned":
+        return "My documents";
+      case "shared":
+        return "Shared with me";
+      case "all":
+        return "All documents";
+      default:
+        return "Recent documents";
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header
@@ -298,16 +352,25 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           {/* Recent Documents Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">
-                Recent documents
-                {!isLoading && totalCount > 0 && (
-                  <span className="text-sm text-muted-foreground ml-2">
-                    ({projects.length} of {totalCount})
-                  </span>
-                )}
-              </h2>
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-medium">
+                  {getFilterTitle()}
+                  {!isLoading && totalCount > 0 && (
+                    <span className="text-sm text-muted-foreground ml-2">
+                      ({projects.length} of {totalCount})
+                    </span>
+                  )}
+                </h2>
+              </div>
 
               <div className="flex items-center gap-4">
+                <FilterDropdown
+                  filter={filter}
+                  onFilterChange={handleFilterChange}
+                  user={user}
+                  isCXO={isCXO}
+                />
+
                 <ViewToggle view={viewMode} onViewChange={handleViewChange} />
                 <Button
                   variant="outline"
@@ -341,9 +404,13 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                   <p className="text-muted-foreground text-center mb-4">
                     {searchQuery
                       ? "Try adjusting your search"
-                      : "Create your first document to get started"}
+                      : filter === "owned"
+                        ? "Create your first document to get started"
+                        : filter === "shared"
+                          ? "No documents have been shared with you yet"
+                          : "No documents available"}
                   </p>
-                  {!searchQuery && (
+                  {!searchQuery && filter === "owned" && (
                     <Button
                       onClick={handleCreateNewDocument}
                       disabled={isCreating}
@@ -358,17 +425,23 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
               <>
                 {viewMode === "grid" ? (
                   <ProjectGrid
+                    key={`grid-${filter}-${searchQuery || "default"}-${projects.length}`}
                     projects={projects}
                     onOpenProject={handleOpenProject}
                     onDeleteProject={handleDeleteProject}
                     navigatingToEditor={navigatingToEditor}
+                    currentUser={user}
+                    isCXO={isCXO}
                   />
                 ) : (
                   <ProjectList
+                    key={`list-${filter}-${searchQuery || "default"}-${projects.length}`}
                     projects={projects}
                     onOpenProject={handleOpenProject}
                     onDeleteProject={handleDeleteProject}
                     navigatingToEditor={navigatingToEditor}
+                    currentUser={user}
+                    isCXO={isCXO}
                   />
                 )}
 

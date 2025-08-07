@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Project } from "@/types";
+import { Project, FilterType } from "@/types";
 import { fetchUserProjects, searchUserProjects } from "@/lib/projectService";
 
 interface UseInfiniteScrollOptions {
   initialLoad?: boolean;
   searchQuery?: string;
   pageSize?: number;
+  filter?: FilterType;
+  userId?: string;
+  userEmail?: string;
 }
 
 interface UseInfiniteScrollReturn {
@@ -24,6 +27,9 @@ export function useInfiniteScroll({
   initialLoad = true,
   searchQuery = "",
   pageSize = 20,
+  filter = "owned",
+  userId = "",
+  userEmail = "",
 }: UseInfiniteScrollOptions = {}): UseInfiniteScrollReturn {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,11 +42,26 @@ export function useInfiniteScroll({
   const observer = useRef<IntersectionObserver | null>(null);
   const loadingRef = useRef(false);
   const currentSearchQuery = useRef(searchQuery);
+  const currentFilter = useRef(filter);
+  const currentUserId = useRef(userId);
+  const currentUserEmail = useRef(userEmail);
 
-  // Update the current search query ref whenever it changes
+  // Update the current refs whenever they change
   useEffect(() => {
     currentSearchQuery.current = searchQuery;
   }, [searchQuery]);
+
+  useEffect(() => {
+    currentFilter.current = filter;
+  }, [filter]);
+
+  useEffect(() => {
+    currentUserId.current = userId;
+  }, [userId]);
+
+  useEffect(() => {
+    currentUserEmail.current = userEmail;
+  }, [userEmail]);
 
   // Stable loadProjects function
   const loadProjects = useCallback(
@@ -49,6 +70,8 @@ export function useInfiniteScroll({
 
       loadingRef.current = true;
       const searchQueryToUse = queryToUse ?? currentSearchQuery.current;
+      const filterToUse = currentFilter.current;
+      const userIdToUse = currentUserId.current;
 
       try {
         if (page === 0) {
@@ -60,11 +83,22 @@ export function useInfiniteScroll({
         setError(null);
 
         const result = searchQueryToUse.trim()
-          ? await searchUserProjects(searchQueryToUse, page, pageSize)
-          : await fetchUserProjects(page, pageSize);
+          ? await searchUserProjects(
+              searchQueryToUse,
+              page,
+              pageSize,
+              filterToUse,
+              userIdToUse
+            )
+          : await fetchUserProjects(
+              page,
+              pageSize,
+              filterToUse,
+              userIdToUse
+            );
 
         if (isRefresh || page === 0) {
-          setProjects(result.projects);
+          setProjects([...result.projects]);
         } else {
           setProjects((prev) => [...prev, ...result.projects]);
         }
@@ -74,7 +108,7 @@ export function useInfiniteScroll({
         setCurrentPage(page);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to load projects",
+          err instanceof Error ? err.message : "Failed to load projects"
         );
         // Reset to empty state on error
         if (page === 0) {
@@ -88,7 +122,7 @@ export function useInfiniteScroll({
         loadingRef.current = false;
       }
     },
-    [pageSize],
+    [pageSize]
   );
 
   // Load more function
@@ -120,12 +154,12 @@ export function useInfiniteScroll({
         {
           threshold: 0.1,
           rootMargin: "100px",
-        },
+        }
       );
 
       if (node) observer.current.observe(node);
     },
-    [hasMore, loadMore],
+    [hasMore, loadMore]
   );
 
   // Initial load
@@ -141,6 +175,26 @@ export function useInfiniteScroll({
     setCurrentPage(0);
     loadProjects(0, true, searchQuery);
   }, [searchQuery, loadProjects]);
+
+  // Handle filter changes
+  useEffect(() => {
+    // Reset pagination and reload when filter changes
+    setCurrentPage(0);
+    setProjects([]); // Clear existing projects when filter changes
+    setHasMore(true); // Reset hasMore when filter changes
+    setTotalCount(0); // Reset total count when filter changes
+    loadProjects(0, true);
+  }, [filter, loadProjects]);
+
+  // Handle userId changes (for user-specific preferences)
+  useEffect(() => {
+    // Reset pagination and reload when userId changes
+    setCurrentPage(0);
+    setProjects([]); // Clear existing projects when user changes
+    setHasMore(true); // Reset hasMore when user changes
+    setTotalCount(0); // Reset total count when user changes
+    loadProjects(0, true);
+  }, [userId, loadProjects]);
 
   // Cleanup observer
   useEffect(() => {
