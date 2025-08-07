@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
-import { getBrowserClient } from "@/lib/supabaseClient";
+import { getAdminClient } from "@/lib/supabaseClient";
 
 type AuthContextType = {
   user: User | null;
@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initialize Supabase client only when needed
   const getSupabase = useCallback(() => {
     try {
-      return getBrowserClient();
+      return getAdminClient();
     } catch (error) {
       console.error("Failed to initialize Supabase client:", error);
       return null;

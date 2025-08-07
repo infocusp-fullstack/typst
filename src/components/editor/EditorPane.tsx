@@ -18,11 +18,13 @@ export function EditorPane({
   theme,
   onChange,
   onSave,
+  readOnly = false,
 }: {
   initialContent: string;
   theme: string;
   onChange: (doc: string) => void;
   onSave: () => void;
+  readOnly?: boolean;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -108,7 +110,7 @@ export function EditorPane({
     if (!editorRef.current) return;
 
     const updateListener = EditorView.updateListener.of((update) => {
-      if (update.docChanged) {
+      if (update.docChanged && !readOnly) {
         onChange(update.state.doc.toString());
       }
     });
@@ -116,10 +118,21 @@ export function EditorPane({
     const saveKeymap = {
       key: "Mod-s",
       run: () => {
-        onSave();
+        if (!readOnly) {
+          onSave();
+        }
         return true;
       },
     };
+
+    // Disable editing in read-only mode
+    const readOnlyKeymap = readOnly ? [] : [
+      ...historyKeymap,
+      ...defaultKeymap,
+      indentWithTab,
+      { key: "Mod-z", run: undo },
+      { key: "Mod-Shift-z", run: redo },
+    ];
 
     const state = EditorState.create({
       doc: initialContent,
@@ -128,15 +141,13 @@ export function EditorPane({
         history(),
         typstSyntax(),
         keymap.of([
-          ...historyKeymap,
-          ...defaultKeymap,
-          indentWithTab,
-          { key: "Mod-z", run: undo },
-          { key: "Mod-Shift-z", run: redo },
+          ...readOnlyKeymap,
           saveKeymap,
         ]),
         updateListener,
         createEditorTheme(),
+        // Disable editing in read-only mode
+        readOnly ? EditorView.editable.of(false) : [],
       ],
     });
 
@@ -150,7 +161,13 @@ export function EditorPane({
     return () => {
       view.destroy();
     };
-  }, [theme]);
+  }, [theme, readOnly]);
 
-  return <div ref={editorRef} className="h-full" />;
+  return (
+    <div 
+      ref={editorRef} 
+      className={`h-full ${readOnly ? 'cursor-not-allowed' : ''}`}
+      title={readOnly ? 'Read-only mode' : ''}
+    />
+  );
 }

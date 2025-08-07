@@ -1,11 +1,11 @@
 import { Template } from "@/types";
-import { getBrowserClient } from "./supabaseClient";
+import { getAdminClient } from "./supabaseClient";
 
 export async function loadTemplateFromStorage(
   storagePath: string,
 ): Promise<string> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
 
     const { data: signedUrlData, error: urlError } = await supabase.storage
       .from("user-projects")
@@ -35,7 +35,7 @@ export async function loadTemplateFromStorage(
 
 // Fetch all active templates
 export async function fetchAvailableTemplates(): Promise<Template[]> {
-  const supabase = getBrowserClient();
+  const supabase = getAdminClient();
   const { data, error } = await supabase
     .from("templates")
     .select("*")
@@ -53,7 +53,7 @@ export async function createTemplateInStorage(
   typContent: string,
   fileName?: string,
 ): Promise<Template> {
-  const supabase = getBrowserClient();
+  const supabase = getAdminClient();
 
   const safeCategory = category || "resume";
   const finalFileName =

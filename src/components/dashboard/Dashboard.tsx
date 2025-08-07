@@ -11,15 +11,19 @@ import {
   createNewProject,
   createProjectFromTemplate,
   deleteProject,
+  renameProject,
   userHasResume,
 } from "@/lib/projectService";
 import { Header } from "./Header";
 import ViewToggle from "./ViewToggle";
-import { ProjectGrid } from "./ProjectGrid";
-import { ProjectList } from "./ProjectList";
+import { FilterDropdown } from "@/components/dashboard/FilterDropdown";
+import { ProjectGrid } from "@/components/dashboard/ProjectGrid";
+import { ProjectList } from "@/components/dashboard/ProjectList";
 import { useInfiniteScroll } from "@/hooks/useInfininiteScroll";
-import { NewDocumentCard } from "./NewDocumentCard";
-import { Template } from "@/types";
+import { NewDocumentCard } from "@/components/dashboard/NewDocumentCard";
+import { RenameModal } from "@/components/dashboard/RenameModal";
+import { FilterType, Template } from "@/types";
+import { isCXOUser } from "@/lib/sharingService";
 
 interface DashboardProps {
   user: User;
@@ -72,12 +76,27 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
-    null,
+    null
   );
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [filter, setFilter] = useState<FilterType>("owned");
+  const [isCXO, setIsCXO] = useState(false);
+  const [renameModal, setRenameModal] = useState<{
+    isOpen: boolean;
+    projectId: string;
+    currentTitle: string;
+  }>({
+    isOpen: false,
+    projectId: "",
+    currentTitle: "",
+  });
 
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
+
+  // Create user-specific localStorage keys
+  const getViewModeKey = () => `dashboard-view-mode-${user.id}`;
+  const getFilterKey = () => `dashboard-filter-${user.id}`;
 
   // Debounce search query
   useEffect(() => {
@@ -88,29 +107,90 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Use infinite scroll hook
+  // Load view and filter preferences from localStorage (user-specific)
+  useEffect(() => {
+    const loadUserPreferences = async () => {
+      // Check CXO status
+      try {
+        const cxoSstatus = await isCXOUser(user.id);
+        setIsCXO(cxoSstatus);
+      } catch (error) {
+        console.error("Error checking CXO status:", error);
+        setIsCXO(false);
+      }
+
+      // Load view mode preference
+      const savedView = localStorage.getItem(getViewModeKey()) as
+        | "grid"
+        | "list";
+      if (savedView && (savedView === "grid" || savedView === "list")) {
+        setViewMode(savedView);
+      }
+
+      // Load filter preference
+      const savedFilter = localStorage.getItem(getFilterKey()) as FilterType;
+      if (
+        savedFilter &&
+        (savedFilter === "owned" ||
+          savedFilter === "shared" ||
+          savedFilter === "all")
+      ) {
+        setFilter(savedFilter);
+      }
+    };
+
+    loadUserPreferences();
+  }, [user.id]);
+
+  // Use infinite scroll hook with filter
   const {
     projects,
     isLoading,
     isLoadingMore,
     error,
-    hasMore,
     totalCount,
     refresh,
     observerRef,
   } = useInfiniteScroll({
     searchQuery: debouncedSearchQuery,
     pageSize: 20,
+    filter,
+    userId: user.id,
+    userEmail: user.email || "",
   });
 
-  // Load saved view mode
+  // Ensure data is loaded when filter changes (including from localStorage)
   useEffect(() => {
-    const savedView = localStorage.getItem("dashboard-view-mode") as
-      | "grid"
-      | "list";
-    if (savedView && (savedView === "grid" || savedView === "list")) {
-      setViewMode(savedView);
-    }
+    // Small delay to ensure filter state is properly set
+    const timer = setTimeout(() => {
+      refresh();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [filter, refresh]);
+
+  // Listen for rename events
+  useEffect(() => {
+    const handleRenameEvent = (event: CustomEvent) => {
+      const { projectId, currentTitle } = event.detail;
+      setRenameModal({
+        isOpen: true,
+        projectId,
+        currentTitle,
+      });
+    };
+
+    window.addEventListener(
+      "rename-project",
+      handleRenameEvent as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "rename-project",
+        handleRenameEvent as EventListener
+      );
+    };
   }, []);
 
   // Refresh projects when tab becomes visible
@@ -127,21 +207,28 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     };
   }, [refresh]);
 
-  const handleViewChange = useCallback((newView: "grid" | "list") => {
-    setViewMode(newView);
-    localStorage.setItem("dashboard-view-mode", newView);
-  }, []);
-
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
   }, []);
+  const handleViewChange = (newView: "grid" | "list") => {
+    setViewMode(newView);
+    localStorage.setItem(getViewModeKey(), newView);
+  };
+
+  const handleFilterChange = (newFilter: FilterType) => {
+    setFilter(newFilter);
+    localStorage.setItem(getFilterKey(), newFilter);
+    // Reset search when changing filter
+    setSearchQuery("");
+    setDebouncedSearchQuery("");
+  };
 
   const handleCreateNewDocument = useCallback(async () => {
     if (isCreating) return;
 
     const title = prompt(
       "What would you like to name your document?",
-      "My New Document",
+      "My New Document"
     );
     if (!title?.trim()) return;
 
@@ -162,24 +249,42 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       setNavigatingToEditor(projectId);
       router.push(`/editor/${projectId}`);
     },
-    [router],
+    [router]
   );
 
   const handleDeleteProject = useCallback(
-    async (projectId: string, typPath: string) => {
+    async (projectId: string, typPath: string, thumbnail_path?: string) => {
       if (
         !confirm("Delete this project forever? This action cannot be undone.")
       )
         return;
 
       try {
-        await deleteProject(projectId, typPath);
+        await deleteProject(projectId, typPath, thumbnail_path);
+        // Refresh the list to ensure consistency
         refresh();
       } catch (err) {
         showErrorAlert("delete", err);
       }
     },
-    [refresh],
+    [refresh]
+  );
+
+  const handleRenameProject = useCallback(
+    async (projectId: string, newTitle: string) => {
+      try {
+        await renameProject(projectId, newTitle);
+
+        // Refresh the list to ensure consistency
+        refresh();
+      } catch (err) {
+        alert(
+          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`
+        );
+        throw err;
+      }
+    },
+    []
   );
 
   const handleSignOut = useCallback(async () => {
@@ -202,7 +307,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           const alreadyHas = await userHasResume(user.id);
           if (alreadyHas) {
             alert(
-              "You already have a resume. Please delete it before creating a new one.",
+              "You already have a resume. Please delete it before creating a new one."
             );
             return;
           }
@@ -215,7 +320,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           user.id,
           title.trim(),
           template,
-          template.category === "resume" ? "resume" : "document",
+          template.category === "resume" ? "resume" : "document"
         );
 
         console.log(`✅ Project created from template: ${newProject.id}`);
@@ -229,26 +334,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         setIsCreatingFromTemplate(false);
       }
     },
-    [isCreating, isCreatingFromTemplate, user.id, router],
-  );
-
-  const LoadMoreIndicator = useMemo(
-    () => (
-      <div ref={observerRef} className="flex justify-center items-center py-8">
-        {isLoadingMore && (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            <span className="text-sm">Loading more...</span>
-          </div>
-        )}
-        {!hasMore && projects.length > 0 && (
-          <p className="text-sm text-muted-foreground">
-            All {totalCount} documents loaded
-          </p>
-        )}
-      </div>
-    ),
-    [observerRef, isLoadingMore, hasMore, projects.length, totalCount],
+    [isCreating, isCreatingFromTemplate, user.id, router]
   );
 
   const EmptyState = useMemo(
@@ -273,8 +359,32 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         </CardContent>
       </Card>
     ),
-    [searchQuery, handleCreateNewDocument, isCreating],
+    [searchQuery, handleCreateNewDocument, isCreating]
   );
+
+  const LoadMoreIndicator = () => (
+    <div ref={observerRef} className="flex justify-center items-center py-8">
+      {isLoadingMore && (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span className="text-sm">Loading more...</span>
+        </div>
+      )}
+    </div>
+  );
+
+  const getFilterTitle = () => {
+    switch (filter) {
+      case "owned":
+        return "My documents";
+      case "shared":
+        return "Shared with me";
+      case "all":
+        return "All documents";
+      default:
+        return "Recent documents";
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -322,16 +432,25 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           {/* Recent Documents Section */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-medium">
-                Recent documents
-                {!isLoading && totalCount > 0 && (
-                  <span className="text-sm text-muted-foreground ml-2">
-                    ({projects.length} of {totalCount})
-                  </span>
-                )}
-              </h2>
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-medium">
+                  {getFilterTitle()}
+                  {!isLoading && totalCount > 0 && (
+                    <span className="text-sm text-muted-foreground ml-2">
+                      ({projects.length} of {totalCount})
+                    </span>
+                  )}
+                </h2>
+              </div>
 
               <div className="flex items-center gap-4">
+                <FilterDropdown
+                  filter={filter}
+                  onFilterChange={handleFilterChange}
+                  user={user}
+                  isCXO={isCXO}
+                />
+
                 <ViewToggle view={viewMode} onViewChange={handleViewChange} />
                 <Button
                   variant="outline"
@@ -361,26 +480,45 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
               <>
                 {viewMode === "grid" ? (
                   <ProjectGrid
+                    key={`grid-${filter}-${searchQuery || "default"}-${projects.length}`}
                     projects={projects}
                     onOpenProject={handleOpenProject}
                     onDeleteProject={handleDeleteProject}
                     navigatingToEditor={navigatingToEditor}
+                    currentUser={user}
+                    isCXO={isCXO}
                   />
                 ) : (
                   <ProjectList
+                    key={`list-${filter}-${searchQuery || "default"}-${projects.length}`}
                     projects={projects}
                     onOpenProject={handleOpenProject}
                     onDeleteProject={handleDeleteProject}
                     navigatingToEditor={navigatingToEditor}
+                    currentUser={user}
+                    isCXO={isCXO}
                   />
                 )}
 
-                {LoadMoreIndicator}
+                <LoadMoreIndicator />
               </>
             )}
           </div>
         </div>
       </main>
+
+      {/* Rename Modal */}
+      <RenameModal
+        isOpen={renameModal.isOpen}
+        onClose={() =>
+          setRenameModal({ isOpen: false, projectId: "", currentTitle: "" })
+        }
+        onRename={(newTitle) =>
+          handleRenameProject(renameModal.projectId, newTitle)
+        }
+        currentTitle={renameModal.currentTitle}
+        isLoading={isLoading}
+      />
     </div>
   );
 }

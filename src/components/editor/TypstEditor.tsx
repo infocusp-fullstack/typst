@@ -15,6 +15,8 @@ import { EditorPane } from "@/components/editor/EditorPane";
 import { PreviewPane } from "@/components/editor/PreviewPane";
 import { User } from "@supabase/supabase-js";
 import { Loading } from "@/components/ui/loading";
+import { canEditProject, isCXOUser } from "@/lib/sharingService";
+import { PDFContent } from "@/types";
 
 interface TypstEditorProps {
   projectId: string;
@@ -22,14 +24,14 @@ interface TypstEditorProps {
   signOut: () => Promise<void>;
 }
 
-export default function TypstEditor({ projectId }: TypstEditorProps) {
+export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { $typst, isReady: isTypstReady } = useTypst();
 
   const contentRef = useRef("");
   const [isLoading, setIsLoading] = useState(true);
-  const [preview, setPreview] = useState<Uint8Array | null>(null);
+  const [preview, setPreview] = useState<PDFContent | null>(null);
   const [projectTitle, setProjectTitle] = useState("");
   const [typPath, setTypPath] = useState("");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -37,6 +39,8 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [isCompiling, setIsCompiling] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
   const didInitRef = useRef(false);
 
   const compileTypst = useCallback(
@@ -75,9 +79,18 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
           const project = await fetchUserProjectById(projectId);
           if (!project) throw new Error("Project not found");
 
-          const content = await loadProjectFile(project.typ_path);
+          // Check if user is owner
+          const owner = project.user_id === user.id;
+          setIsOwner(owner);
 
+          // Check if user can edit
+          const editPermission = await canEditProject(projectId, user.id);
+          const iscxo = await isCXOUser(user.id);
+          setCanEdit(iscxo || editPermission);
+
+          const content = await loadProjectFile(project.typ_path);
           contentRef.current = content;
+
           setProjectTitle(project.title);
           setTypPath(project.typ_path);
           setLastSaved(new Date(project.updated_at));
@@ -93,22 +106,41 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
     };
 
     if (projectId !== "new") load();
-  }, [projectId, isTypstReady]);
+  }, [projectId, isTypstReady, user.id]);
 
   const debouncedCompile = useDebounce(compileTypst, 1500);
 
   const handleChange = (newDoc: string) => {
+    if (!canEdit) return; // Prevent editing if user doesn't have permission
+
     contentRef.current = newDoc;
     setHasChanges(true);
     debouncedCompile(newDoc);
   };
 
   const handleSave = async () => {
-    if (!typPath || !contentRef.current) return;
+    if (!typPath || !contentRef.current || !canEdit) return;
 
     try {
       setIsSaving(true);
-      await saveProjectFile(projectId, typPath, contentRef.current);
+
+      // Always compile fresh content for save to ensure we have the latest version
+      let pdfContent: PDFContent | null = null;
+      if ($typst && isTypstReady) {
+        try {
+          pdfContent = await $typst.pdf({ mainContent: contentRef.current });
+        } catch (compileError) {
+          console.error("Compilation failed during save:", compileError);
+          pdfContent = null;
+        }
+      }
+
+      await saveProjectFile(
+        projectId,
+        typPath,
+        contentRef.current,
+        pdfContent || undefined
+      );
       setLastSaved(new Date());
       setHasChanges(false);
     } catch {
@@ -122,7 +154,7 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
     if (!isTypstReady || !$typst) return;
     try {
       const data = await $typst.pdf({ mainContent: contentRef.current });
-      const blob = new Blob([data], { type: "application/pdf" });
+      const blob = new Blob([data as unknown as BlobPart], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -135,7 +167,7 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
   };
 
   const handleBack = () => {
-    if (hasChanges && confirm("Save before leaving?")) {
+    if (hasChanges && canEdit && confirm("Save before leaving?")) {
       handleSave().then(() => router.push("/dashboard"));
     } else {
       router.push("/dashboard");
@@ -161,6 +193,9 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
         toggleTheme={toggleTheme}
         isCompiling={isCompiling}
         isTypstReady={isTypstReady}
+        projectId={projectId}
+        user={user}
+        isOwner={isOwner}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -171,6 +206,7 @@ export default function TypstEditor({ projectId }: TypstEditorProps) {
             theme={theme || "dark"}
             onChange={handleChange}
             onSave={handleSave}
+            readOnly={!canEdit}
           />
         </div>
         <div className="w-1/2 overflow-auto preview-container h-full">

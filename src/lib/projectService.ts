@@ -1,33 +1,84 @@
-import { getBrowserClient } from "./supabaseClient";
-import { Project, Template } from "@/types";
+import { getAdminClient } from "@/lib/supabaseClient";
+import { Project, FilterType, PDFContent, ProjectWithShares, Template } from "@/types";
+import { isCXOUser } from "@/lib/sharingService";
+import { generateAndUploadThumbnail } from "@/lib/thumbnailService";
 
 const DEFAULT_CONTENT = ``;
 const PAGE_SIZE = 20;
-/* ---------- Fetch user projects with pagination ---------- */
+
+/* ---------- Fetch user projects with pagination and filtering ---------- */
 export async function fetchUserProjects(
   page: number = 0,
   pageSize: number = PAGE_SIZE,
-): Promise<{ projects: Project[]; hasMore: boolean; totalCount: number }> {
+  filter: FilterType = "owned",
+  userId: string
+): Promise<{
+  projects: ProjectWithShares[];
+  hasMore: boolean;
+  totalCount: number;
+}> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
 
-    // Get total count first
-    const { count } = await supabase
-      .from("projects")
-      .select("*", { count: "exact", head: true });
+    let query;
 
-    // Fetch paginated data
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .order("updated_at", { ascending: false })
-      .range(page * pageSize, (page + 1) * pageSize - 1);
+    if (filter === "owned") {
+      // User's own projects
+      query = supabase
+        .from("projects")
+        .select("*", { count: "exact" })
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+    } else if (filter === "shared") {
+      // Projects shared with the user - use a join query
+      query = supabase
+        .from("projects")
+        .select(
+          `
+          *,
+          project_shares!inner(shared_with)
+        `,
+          { count: "exact" }
+        )
+        .eq("project_shares.shared_with", userId)
+        .order("updated_at", { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+    } else if (filter === "all") {
+      const isCXO = await isCXOUser(userId);
+      if (!isCXO) {
+        throw new Error("Access denied: CXO privileges required");
+      }
+      query = supabase
+        .from("projects")
+        .select("*", { count: "exact" })
+        .order("updated_at", { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+    } else {
+      throw new Error("Invalid filter type");
+    }
+
+    const { data, count, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch projects: ${error.message}`);
     }
 
-    const projects = (data as unknown as Project[]) || [];
+    // Clean up the data structure for shared projects
+    const projects =
+      filter === "shared"
+        ? (data as ProjectWithShares[])?.map((item) => ({
+            id: item.id,
+            user_id: item.user_id,
+            title: item.title,
+            typ_path: item.typ_path,
+            thumbnail_path: item.thumbnail_path,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            project_shares: item.project_shares,
+          })) || []
+        : (data as ProjectWithShares[]) || [];
+
     const hasMore = (page + 1) * pageSize < (count || 0);
 
     return {
@@ -39,49 +90,84 @@ export async function fetchUserProjects(
     throw error;
   }
 }
+
 export async function searchUserProjects(
   searchQuery: string,
   page: number = 0,
   pageSize: number = PAGE_SIZE,
-): Promise<{ projects: Project[]; hasMore: boolean; totalCount: number }> {
+  filter: FilterType = "owned",
+  userId: string
+): Promise<{
+  projects: ProjectWithShares[];
+  hasMore: boolean;
+  totalCount: number;
+}> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
 
-    // First, get the count with the search filter
-    let countQuery = supabase
-      .from("projects")
-      .select("*", { count: "exact", head: true });
+    let query;
 
-    if (searchQuery.trim()) {
-      countQuery = countQuery.ilike("title", `%${searchQuery.trim()}%`);
+    if (filter === "owned") {
+      // User's own projects with search
+      query = supabase
+        .from("projects")
+        .select("*", { count: "exact" })
+        .eq("user_id", userId)
+        .ilike("title", `%${searchQuery.trim()}%`)
+        .order("updated_at", { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+    } else if (filter === "shared") {
+      // Projects shared with the user with search
+      query = supabase
+        .from("projects")
+        .select(
+          `
+          *,
+          project_shares!inner(shared_with)
+        `,
+          { count: "exact" }
+        )
+        .eq("project_shares.shared_with", userId)
+        .ilike("title", `%${searchQuery.trim()}%`)
+        .order("updated_at", { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+    } else if (filter === "all") {
+      const isCXO = await isCXOUser(userId);
+      if (!isCXO) {
+        throw new Error("Access denied: CXO privileges required");
+      }
+      // All projects with search (CXO only)
+      query = supabase
+        .from("projects")
+        .select("*", { count: "exact" })
+        .ilike("title", `%${searchQuery.trim()}%`)
+        .order("updated_at", { ascending: false })
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+    } else {
+      throw new Error("Invalid filter type");
     }
 
-    const { count, error: countError } = await countQuery;
-
-    if (countError) {
-      throw new Error(`Failed to get count: ${countError.message}`);
-    }
-
-    // Then get the paginated data
-    let dataQuery = supabase
-      .from("projects")
-      .select("*")
-      .order("updated_at", { ascending: false });
-
-    if (searchQuery.trim()) {
-      dataQuery = dataQuery.ilike("title", `%${searchQuery.trim()}%`);
-    }
-
-    const { data, error } = await dataQuery.range(
-      page * pageSize,
-      (page + 1) * pageSize - 1,
-    );
+    const { data, count, error } = await query;
 
     if (error) {
       throw new Error(`Failed to search projects: ${error.message}`);
     }
 
-    const projects = (data as unknown as Project[]) || [];
+    // Clean up the data structure for shared projects
+    const projects =
+      filter === "shared"
+        ? (data as ProjectWithShares[])?.map((item) => ({
+            id: item.id,
+            user_id: item.user_id,
+            title: item.title,
+            typ_path: item.typ_path,
+            thumbnail_path: item.thumbnail_path,
+            created_at: item.created_at,
+            updated_at: item.updated_at,
+            project_shares: item.project_shares,
+          })) || []
+        : (data as ProjectWithShares[]) || [];
+
     const hasMore = (page + 1) * pageSize < (count || 0);
 
     return {
@@ -93,11 +179,12 @@ export async function searchUserProjects(
     throw error;
   }
 }
+
 export async function fetchUserProjectById(
-  projectId: string,
+  projectId: string
 ): Promise<Project | null> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
     const { data, error } = await supabase
       .from("projects")
       .select("*")
@@ -122,7 +209,7 @@ export async function createProjectFromTemplate(
 ): Promise<Project> {
   const projectId = crypto.randomUUID();
   const typPath = `${userId}/${projectId}/main.typ`;
-  const supabase = getBrowserClient();
+  const supabase = getAdminClient();
 
   // Load template content from storage (CHANGED - was template.content)
   const { loadTemplateFromStorage } = await import("@/lib/templateService");
@@ -158,7 +245,7 @@ export async function createProjectFromTemplate(
   return data as Project;
 }
 export async function userHasResume(userId: string): Promise<boolean> {
-  const supabase = getBrowserClient();
+  const supabase = getAdminClient();
 
   const { data, error } = await supabase
     .from("projects")
@@ -173,7 +260,7 @@ export async function userHasResume(userId: string): Promise<boolean> {
 /* ---------- Load project file ---------- */
 export async function loadProjectFile(path: string): Promise<string> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
 
     const { data: signedUrlData, error: urlError } = await supabase.storage
       .from("user-projects")
@@ -202,13 +289,13 @@ export async function loadProjectFile(path: string): Promise<string> {
 /* ---------- Create new project with initial file ---------- */
 export async function createNewProject(
   userId: string,
-  title: string = "Untitled Document",
+  title: string = "Untitled Document"
 ): Promise<Project> {
   try {
     const projectId = crypto.randomUUID();
     const typPath = `${userId}/${projectId}/main.typ`;
 
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
 
     // 1. Create database entry first
     const { data, error: dbError } = await supabase
@@ -241,19 +328,21 @@ export async function createNewProject(
       throw new Error(`File creation failed: ${fileError.message}`);
     }
 
-    return data as unknown as Project;
+    return data as Project;
   } catch (error) {
     throw error;
   }
 }
+
 /* ---------- Save project file ---------- */
 export async function saveProjectFile(
   projectId: string,
   typPath: string,
   code: string,
+  pdfContent?: PDFContent
 ): Promise<void> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
 
     // Upload file to storage
     const { error: uploadError } = await supabase.storage
@@ -267,17 +356,59 @@ export async function saveProjectFile(
       throw new Error(`File upload failed: ${uploadError.message}`);
     }
 
-    // Update database timestamp
-    const { error: updateError } = await supabase
+    // Generate and upload thumbnail if PDF content is provided
+    if (pdfContent) {
+      try {
+        const thumbnailPath = `${typPath.replace(".typ", "_thumb.png")}`;
+        await generateAndUploadThumbnail(pdfContent, thumbnailPath);
+
+        // Update database with thumbnail path
+        const { error: thumbnailUpdateError } = await supabase
+          .from("projects")
+          .update({
+            thumbnail_path: thumbnailPath,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", projectId);
+
+        if (thumbnailUpdateError) {
+          console.error(
+            "Failed to update thumbnail path:",
+            thumbnailUpdateError
+          );
+        }
+      } catch (thumbnailError) {
+        console.error("Thumbnail generation failed:", thumbnailError);
+      }
+    }
+  } catch (error) {
+    throw error;
+  }
+}
+
+/* ---------- Rename project ---------- */
+export async function renameProject(
+  projectId: string,
+  newTitle: string
+): Promise<Project> {
+  try {
+    const supabase = getAdminClient();
+
+    const { data, error } = await supabase
       .from("projects")
       .update({
+        title: newTitle,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", projectId);
+      .eq("id", projectId)
+      .select()
+      .single();
 
-    if (updateError) {
-      // Non-critical error, don't throw
+    if (error) {
+      throw new Error(`Failed to rename project: ${error.message}`);
     }
+
+    return data as Project;
   } catch (error) {
     throw error;
   }
@@ -287,29 +418,39 @@ export async function saveProjectFile(
 export async function deleteProject(
   projectId: string,
   typPath: string,
+  thumbnail_path?: string
 ): Promise<void> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
 
-    // Delete file from storage first
-    const { error: storageError } = await supabase.storage
-      .from("user-projects")
-      .remove([typPath]);
-
-    if (storageError) {
-      throw new Error(`Storage delete failed: ${storageError.message}`);
+    const filesToDelete = [typPath];
+    if (thumbnail_path && thumbnail_path.trim() !== "") {
+      filesToDelete.push(thumbnail_path);
     }
 
-    // Delete database entry
+    // Delete all files from storage in one call
+    const { error: storageError } = await supabase.storage
+      .from("user-projects")
+      .remove(filesToDelete);
+
+    if (storageError) {
+      throw new Error("Storage files deletion failed");
+    }
+
+    // Delete database entry (this will cascade delete any related data)
     const { error: dbError } = await supabase
       .from("projects")
       .delete()
       .eq("id", projectId);
 
     if (dbError) {
-      throw new Error(`Database delete failed: ${dbError.message}`);
+      console.log(`Database delete failed: ${dbError.message}`);
+      throw new Error("Failed to delete");
     }
+
+    console.log(`Project ${projectId} deleted successfully`);
   } catch (error) {
+    console.error("Project deletion failed:", error);
     throw error;
   }
 }
@@ -317,7 +458,7 @@ export async function deleteProject(
 /* ---------- Check storage access ---------- */
 export async function checkStorageAccess(): Promise<boolean> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getAdminClient();
     const { data: user } = await supabase.auth.getUser();
 
     if (!user.user) {
