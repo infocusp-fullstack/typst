@@ -1,5 +1,5 @@
 import { getBrowserClient } from "./supabaseClient";
-import { Project } from "@/types";
+import { Project, Template } from "@/types";
 
 const DEFAULT_CONTENT = ``;
 const PAGE_SIZE = 20;
@@ -108,11 +108,66 @@ export async function fetchUserProjectById(
       throw new Error(`Failed to fetch project: ${error.message}`);
     }
 
-    return data as Project;
+    return data as unknown as Project;
   } catch (error) {
     console.error(error);
     return null;
   }
+}
+export async function createProjectFromTemplate(
+  userId: string,
+  title: string,
+  template: Template,
+  projectType: "resume" | "document" = "document",
+): Promise<Project> {
+  const projectId = crypto.randomUUID();
+  const typPath = `${userId}/${projectId}/main.typ`;
+  const supabase = getBrowserClient();
+
+  // Load template content from storage (CHANGED - was template.content)
+  const { loadTemplateFromStorage } = await import("@/lib/templateService");
+  const templateContent = await loadTemplateFromStorage(template.storage_path);
+
+  // Upload to user's project (same as before)
+  const { error: uploadError } = await supabase.storage
+    .from("user-projects")
+    .upload(typPath, new Blob([templateContent], { type: "text/plain" }), {
+      upsert: true,
+      contentType: "text/plain",
+    });
+
+  if (uploadError) throw new Error(uploadError.message);
+
+  //  Insert project record (same as before)
+  const { data, error: insertError } = await supabase
+    .from("projects")
+    .insert([
+      {
+        id: projectId,
+        user_id: userId,
+        title,
+        typ_path: typPath,
+        template_id: template.id,
+        project_type: projectType,
+      },
+    ])
+    .select()
+    .single();
+
+  if (insertError) throw new Error(insertError.message);
+  return data as Project;
+}
+export async function userHasResume(userId: string): Promise<boolean> {
+  const supabase = getBrowserClient();
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("project_type", "resume")
+    .maybeSingle();
+
+  return !!data && !error;
 }
 
 /* ---------- Load project file ---------- */

@@ -29,7 +29,7 @@ const ProjectGrid = React.memo(
         ))}
       </div>
     );
-  }
+  },
 );
 
 ProjectGrid.displayName = "ProjectGrid";
