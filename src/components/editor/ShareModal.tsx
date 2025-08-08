@@ -71,7 +71,13 @@ export function ShareModal({
 
       setIsSearching(true);
       try {
-        const results = await searchUsers(searchQuery);
+        const excludeIds = [
+          currentUserId,
+          ...sharedUsers.map((s) => s.shared_with),
+        ];
+        const results = await searchUsers(searchQuery, {
+          excludeUserIds: Array.from(new Set(excludeIds)),
+        });
         setSearchResults(results);
       } catch (error) {
         console.error("Failed to search users:", error);
@@ -83,7 +89,7 @@ export function ShareModal({
 
     const timeoutId = setTimeout(searchUsersDebounced, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, currentUserId, sharedUsers]);
 
   const loadSharedUsers = async () => {
     setIsLoadingShares(true);
@@ -105,7 +111,7 @@ export function ShareModal({
     try {
       await shareProject(projectId, currentUserId, selectedUser.id, permission);
       showToast.success(
-        `Shared with ${selectedUser.name || selectedUser.email}`,
+        `Shared with ${selectedUser.name || selectedUser.email}`
       );
       onClose();
       // setSelectedUser(null);
@@ -115,7 +121,7 @@ export function ShareModal({
     } catch (error) {
       console.error("Failed to share:", error);
       showToast.error(
-        error instanceof Error ? error.message : "Failed to share",
+        error instanceof Error ? error.message : "Failed to share"
       );
     } finally {
       setIsSharing(false);
@@ -135,14 +141,14 @@ export function ShareModal({
 
   const handleUpdatePermission = async (
     toSharedUserId: string,
-    newPermission: SharePermission,
+    newPermission: SharePermission
   ) => {
     try {
       await shareProject(
         projectId,
         currentUserId,
         toSharedUserId,
-        newPermission,
+        newPermission
       ); // This will update existing share
       showToast.success("Permission updated");
       loadSharedUsers();

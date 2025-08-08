@@ -183,7 +183,10 @@ export async function getProjectShares(
 }
 
 // Search users by name or email
-export async function searchUsers(query: string): Promise<User[]> {
+export async function searchUsers(
+  query: string,
+  options?: { excludeUserIds?: string[] }
+): Promise<User[]> {
   try {
     const supabase = getAdminClient();
 
@@ -196,12 +199,16 @@ export async function searchUsers(query: string): Promise<User[]> {
     }
 
     // Filter users by email or name
+    const excludeIds = options?.excludeUserIds ?? [];
+
     const filteredUsers = data.users
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .filter((user: any) => {
         const email = user.email?.toLowerCase() || "";
         const name = user.user_metadata?.name?.toLowerCase() || "";
         const searchTerm = query.toLowerCase();
+
+        if (excludeIds.includes(user.id)) return false;
 
         return email.includes(searchTerm) || name.includes(searchTerm);
       })
