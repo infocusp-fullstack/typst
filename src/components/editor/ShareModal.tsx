@@ -71,7 +71,10 @@ export function ShareModal({
 
       setIsSearching(true);
       try {
-        const results = await searchUsers(searchQuery);
+        const excludeIds = [currentUserId, ...sharedUsers.map((s) => s.shared_with)];
+        const results = await searchUsers(searchQuery, {
+          excludeUserIds: Array.from(new Set(excludeIds)),
+        });
         setSearchResults(results);
       } catch (error) {
         console.error("Failed to search users:", error);
@@ -83,7 +86,7 @@ export function ShareModal({
 
     const timeoutId = setTimeout(searchUsersDebounced, 300);
     return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  }, [searchQuery, currentUserId, sharedUsers]);
 
   const loadSharedUsers = async () => {
     setIsLoadingShares(true);
