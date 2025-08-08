@@ -15,8 +15,10 @@ import { EditorPane } from "@/components/editor/EditorPane";
 import { PreviewPane } from "@/components/editor/PreviewPane";
 import { User } from "@supabase/supabase-js";
 import { Loading } from "@/components/ui/loading";
-import { canEditProject, isCXOUser } from "@/lib/sharingService";
+import { canEditProject, isCXOByEmail } from "@/lib/sharingService";
 import { PDFContent } from "@/types";
+import { useDialog } from "@/hooks/useDialog";
+import { showToast } from "@/lib/toast";
 
 interface TypstEditorProps {
   projectId: string;
@@ -25,6 +27,7 @@ interface TypstEditorProps {
 }
 
 export default function TypstEditor({ projectId, user }: TypstEditorProps) {
+  const { confirm } = useDialog();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const { $typst, isReady: isTypstReady } = useTypst();
@@ -64,7 +67,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         setIsCompiling(false);
       }
     },
-    [$typst, isTypstReady],
+    [$typst, isTypstReady]
   );
 
   useEffect(() => {
@@ -75,38 +78,42 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
       try {
         setIsLoading(true);
 
-        if (isTypstReady) {
-          const project = await fetchUserProjectById(projectId);
-          if (!project) throw new Error("Project not found");
+        if (!isTypstReady) return;
 
-          // Check if user is owner
-          const owner = project.user_id === user.id;
-          setIsOwner(owner);
+        // Fetch project meta and permissions in parallel
+        const project = await fetchUserProjectById(projectId);
+        if (!project) throw new Error("Project not found");
 
-          // Check if user can edit
-          const editPermission = await canEditProject(projectId, user.id);
-          const iscxo = await isCXOUser(user.id);
-          setCanEdit(iscxo || editPermission);
+        const [editPermission, iscxo, content] = await Promise.all([
+          canEditProject(projectId, user.id, project.user_id),
+          isCXOByEmail(user.email),
+          loadProjectFile(project.typ_path),
+        ]);
 
-          const content = await loadProjectFile(project.typ_path);
-          contentRef.current = content;
+        // Owner and permissions
+        const owner = project.user_id === user.id;
+        setIsOwner(owner);
+        setCanEdit(owner || iscxo || editPermission);
 
-          setProjectTitle(project.title);
-          setTypPath(project.typ_path);
-          setLastSaved(new Date(project.updated_at));
-          setHasChanges(false);
-          compileTypst(content);
-        }
+        // Content and state
+        contentRef.current = content;
+        setProjectTitle(project.title);
+        setTypPath(project.typ_path);
+        setLastSaved(new Date(project.updated_at));
+        setHasChanges(false);
+
+        // Compile after setting state
+        compileTypst(content);
       } catch {
-        alert("Failed to load project.");
+        showToast.error("Failed to load project.");
         router.push("/dashboard");
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (projectId !== "new") load();
-  }, [projectId, isTypstReady, user.id]);
+    if (projectId !== "new") void load();
+  }, [projectId, isTypstReady, user.id, compileTypst, router]);
 
   const debouncedCompile = useDebounce(compileTypst, 1500);
 
@@ -139,12 +146,12 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         projectId,
         typPath,
         contentRef.current,
-        pdfContent || undefined,
+        pdfContent || undefined
       );
       setLastSaved(new Date());
       setHasChanges(false);
     } catch {
-      alert("Failed to save.");
+      showToast.error("Failed to save.");
     } finally {
       setIsSaving(false);
     }
@@ -164,20 +171,27 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      alert("PDF export failed.");
+      showToast.error("PDF export failed.");
     }
   };
 
-  const handleBack = () => {
-    if (hasChanges && canEdit && confirm("Save before leaving?")) {
-      handleSave().then(() => router.push("/dashboard"));
-    } else {
-      router.push("/dashboard");
+  const handleBack = async () => {
+    if (hasChanges && canEdit) {
+      const ok = await confirm({
+        title: "Save before leaving?",
+        description: "Your latest edits will be saved to your document.",
+        confirmText: "Save & Leave",
+        cancelText: "Discard Changes",
+      });
+      if (ok) {
+        await handleSave();
+      }
     }
+    router.push("/dashboard");
   };
 
   if (isLoading) {
-    return <Loading text="Loading your document..." fullScreen />;
+    return <Loading text="Preparing editor..." fullScreen />;
   }
 
   return (

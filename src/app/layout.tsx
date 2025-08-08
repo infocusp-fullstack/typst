@@ -2,6 +2,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import { AuthProvider } from "@/hooks/useAuth";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { DialogProvider } from "@/hooks/useDialog";
 
 export const metadata = {
   title: "Typst Resume",
@@ -18,7 +19,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider>
           <AuthProvider>
-            {children}
+            <DialogProvider>{children}</DialogProvider>
             <Toaster />
           </AuthProvider>
         </ThemeProvider>
