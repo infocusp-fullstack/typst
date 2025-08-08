@@ -78,7 +78,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
-    null
+    null,
   );
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<FilterType>("owned");
@@ -156,6 +156,8 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     totalCount,
     refresh,
     observerRef,
+    optimisticRename,
+    optimisticRemove,
   } = useInfiniteScroll({
     initialLoad: preferencesLoaded,
     searchQuery: debouncedSearchQuery,
@@ -170,7 +172,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     (projectId: string, currentTitle: string) => {
       setRenameModal({ isOpen: true, projectId, currentTitle });
     },
-    []
+    [],
   );
 
   const handleSearchChange = useCallback((query: string) => {
@@ -226,7 +228,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       }
       router.push(`/editor/${projectId}`);
     },
-    [router]
+    [router],
   );
 
   const handleDeleteProject = useCallback(
@@ -242,31 +244,32 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       if (!ok) return;
 
       try {
+        optimisticRemove(projectId);
         await deleteProject(projectId, typPath, thumbnail_path);
-        // Refresh the list to ensure consistency
-        refresh();
+        showToast.success("Project deleted successfully");
       } catch {
+        // Refresh on error
+        refresh();
         showErrorAlert("delete");
       }
     },
-    [refresh, confirm]
+    [refresh, confirm],
   );
 
   const handleRenameProject = useCallback(
     async (projectId: string, newTitle: string) => {
       try {
+        optimisticRename(projectId, newTitle);
         await renameProject(projectId, newTitle);
-
-        // Refresh the list to ensure consistency
-        refresh();
+        showToast.success("Project renamed successfully");
       } catch (err) {
-        showToast.error(
-          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`
-        );
+        // Refresh on error
+        refresh();
+        showErrorAlert("rename");
         throw err;
       }
     },
-    []
+    [],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -295,7 +298,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           const alreadyHas = await userHasResume(user.id);
           if (alreadyHas) {
             showToast.warning(
-              "You already have a resume. Please delete it before creating a new one."
+              "You already have a resume. Please delete it before creating a new one.",
             );
             return;
           }
@@ -314,7 +317,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           user.id,
           title.trim(),
           template,
-          template.category === "resume" ? "resume" : "document"
+          template.category === "resume" ? "resume" : "document",
         );
 
         router.push(`/editor/${newProject.id}`);
@@ -325,7 +328,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         setIsCreatingFromTemplate(false);
       }
     },
-    [isCreating, isCreatingFromTemplate, user.id, router, prompt]
+    [isCreating, isCreatingFromTemplate, user.id, router, prompt],
   );
 
   const EmptyState = useMemo(
@@ -350,7 +353,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         </CardContent>
       </Card>
     ),
-    [searchQuery, handleCreateNewDocument, isCreating]
+    [searchQuery, handleCreateNewDocument, isCreating],
   );
 
   const LoadMoreIndicator = () => (

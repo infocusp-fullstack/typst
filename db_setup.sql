@@ -277,6 +277,10 @@ CREATE POLICY "CXO users can delete CXO users" ON cxo_users
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('user-projects', 'user-projects', false);
 
+-- Public thumbnails bucket for globally accessible images
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('thumbnails', 'thumbnails', true);
+
 -- Storage policies for user's own files
 CREATE POLICY "Users can upload their own files" ON storage.objects
   FOR INSERT WITH CHECK (bucket_id = 'user-projects' AND auth.uid()::text = (storage.foldername(name))[1]);

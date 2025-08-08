@@ -61,7 +61,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     error?: string;
   }>({ open: false, options: {}, value: "" });
   const promptResolverRef = useRef<((value: string | null) => void) | null>(
-    null
+    null,
   );
 
   const closeAll = () => {
@@ -119,7 +119,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
 
   const value = useMemo<DialogContextValue>(
     () => ({ confirm, prompt }),
-    [confirm, prompt]
+    [confirm, prompt],
   );
 
   return (

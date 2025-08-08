@@ -40,7 +40,6 @@ const ProjectCard = React.memo(
     onRename,
   }: ProjectCardProps) => {
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-    const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
     const [canDelete, setCanDelete] = useState(false);
     const [canRename, setCanRename] = useState(false);
 
@@ -61,26 +60,11 @@ const ProjectCard = React.memo(
     useEffect(() => {
       setCanDelete(isCXO || isOwner);
       setCanRename(isCXO || isOwner || isSharedWith);
+      const url = project.thumbnail_path
+        ? `${getThumbnailUrl(project.thumbnail_path)}?v=${project.updated_at}`
+        : null;
+      setThumbnailUrl(url);
     }, [project.id, currentUser.id, isOwner]);
-
-    // Load thumbnail if available
-    useEffect(() => {
-      if (project.thumbnail_path) {
-        setIsLoadingThumbnail(true);
-        getThumbnailUrl(project.thumbnail_path)
-          .then((url) => {
-            setThumbnailUrl(url);
-          })
-          .catch((error) => {
-            console.error("Failed to load thumbnail:", error);
-          })
-          .finally(() => {
-            setIsLoadingThumbnail(false);
-          });
-      } else {
-        setThumbnailUrl(null);
-      }
-    }, [project.thumbnail_path]);
 
     return (
       <div className="group relative cursor-pointer" onClick={onOpen}>
@@ -97,11 +81,7 @@ const ProjectCard = React.memo(
               </div>
             ) : (
               <div className="flex items-center justify-center h-2/3">
-                {isLoadingThumbnail ? (
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                ) : (
-                  <FileText className="h-16 w-16 text-primary/30" />
-                )}
+                <FileText className="h-16 w-16 text-primary/30" />
               </div>
             )}
 

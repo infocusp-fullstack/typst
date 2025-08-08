@@ -40,7 +40,6 @@ const ProjectListItem = React.memo(
     onRename,
   }: ProjectListItemProps) => {
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-    const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
     const [canDelete, setCanDelete] = useState(false);
     const [canRename, setCanRename] = useState(false);
 
@@ -63,26 +62,11 @@ const ProjectListItem = React.memo(
     useEffect(() => {
       setCanDelete(isCXO || isOwner);
       setCanRename(isCXO || isOwner || isSharedWith);
+      const url = project.thumbnail_path
+        ? `${getThumbnailUrl(project.thumbnail_path)}?v=${project.updated_at}`
+        : null;
+      setThumbnailUrl(url);
     }, [project.id, currentUser.id, isOwner]);
-
-    // Load thumbnail if available
-    useEffect(() => {
-      if (project.thumbnail_path) {
-        setIsLoadingThumbnail(true);
-        getThumbnailUrl(project.thumbnail_path)
-          .then((url) => {
-            setThumbnailUrl(url);
-          })
-          .catch((error) => {
-            console.error("Failed to load thumbnail:", error);
-          })
-          .finally(() => {
-            setIsLoadingThumbnail(false);
-          });
-      } else {
-        setThumbnailUrl(null);
-      }
-    }, [project.thumbnail_path]);
 
     return (
       <div
@@ -107,11 +91,7 @@ const ProjectListItem = React.memo(
             </div>
           ) : (
             <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-              {isLoadingThumbnail ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              ) : (
-                <FileText className="h-5 w-5 text-primary" />
-              )}
+              <FileText className="h-5 w-5 text-primary" />
             </div>
           )}
         </div>

@@ -13,6 +13,9 @@ const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailOptions = {
   quality: 0.8,
 };
 
+const THUMBNAIL_BUCKET = "thumbnails";
+const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
 /**
  * Generate a thumbnail from PDF content and upload to Supabase storage
  */
@@ -47,19 +50,18 @@ export async function generateAndUploadThumbnail(
         },
       );
 
-      // Upload to Supabase
+      // Upload to Supabase public thumbnail bucket
       const supabase = getAdminClient();
-      const { error } = await supabase.storage
-        .from("user-projects")
+      const { error: uploadError } = await supabase.storage
+        .from(THUMBNAIL_BUCKET)
         .upload(thumbnailPath, imageBlob, {
           upsert: true,
           contentType: "image/png",
         });
-
-      if (error) {
-        throw new Error(`Thumbnail upload failed: ${error.message}`);
+      if (uploadError) {
+        throw new Error(`Thumbnail upload failed: ${uploadError.message}`);
       }
-
+      // Store only the path in DB
       return thumbnailPath;
     }
 
@@ -116,19 +118,19 @@ async function createFallbackThumbnail(
       );
     });
 
-    // Upload to Supabase
+    // Upload to Supabase public thumbnail bucket
     const supabase = getAdminClient();
-    const { error } = await supabase.storage
-      .from("user-projects")
+    const { error: uploadError } = await supabase.storage
+      .from(THUMBNAIL_BUCKET)
       .upload(thumbnailPath, blob, {
         upsert: true,
         contentType: "image/png",
       });
-
-    if (error) {
-      throw new Error(`Fallback thumbnail upload failed: ${error.message}`);
+    if (uploadError) {
+      throw new Error(
+        `Fallback thumbnail upload failed: ${uploadError.message}`,
+      );
     }
-
     return thumbnailPath;
   } catch (error) {
     console.error("Fallback thumbnail creation failed:", error);
@@ -136,23 +138,12 @@ async function createFallbackThumbnail(
   }
 }
 
-/**
- * Get signed URL for thumbnail
- */
-export async function getThumbnailUrl(
-  thumbnailPath: string,
-): Promise<string | null> {
+export function getThumbnailUrl(thumbnailPath: string): string | null {
   try {
-    const supabase = getAdminClient();
-    const { data, error } = await supabase.storage
-      .from("user-projects")
-      .createSignedUrl(thumbnailPath, 3600); // 1 hour
-
-    if (error || !data?.signedUrl) {
-      return null;
-    }
-
-    return data.signedUrl;
+    if (!thumbnailPath) return null;
+    if (!baseUrl) return null;
+    const trimmed = thumbnailPath.replace(/^\/+/, "");
+    return `${baseUrl}/storage/v1/object/public/${THUMBNAIL_BUCKET}/${trimmed}`;
   } catch (error) {
     console.error("Failed to get thumbnail URL:", error);
     return null;
@@ -165,9 +156,11 @@ export async function getThumbnailUrl(
 export async function deleteThumbnail(thumbnailPath: string): Promise<void> {
   try {
     const supabase = getAdminClient();
+    const path = thumbnailPath.replace(/^\/+/, "");
+
     const { error } = await supabase.storage
-      .from("user-projects")
-      .remove([thumbnailPath]);
+      .from(THUMBNAIL_BUCKET)
+      .remove([path]);
 
     if (error) {
       console.error("Failed to delete thumbnail:", error);

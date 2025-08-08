@@ -63,9 +63,13 @@ CREATE TABLE projects (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create storage bucket
+-- Create storage buckets
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('user-projects', 'user-projects', false);
+
+-- Public thumbnails bucket used for previews
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('thumbnails', 'thumbnails', true);
 
 -- Storage policies
 CREATE POLICY "Users can upload their own files" ON storage.objects

@@ -146,3 +146,37 @@ CREATE POLICY "All authenticated users can delete from user-projects"
     bucket_id = 'user-projects'
     AND auth.uid() IS NOT NULL
   );
+
+-- Public thumbnails bucket: allow anonymous read
+CREATE POLICY "Anonymous can read thumbnails"
+  ON storage.objects
+  FOR SELECT
+  USING (
+    bucket_id = 'thumbnails'
+    AND auth.uid() IS NOT NULL
+  );
+
+-- Allow authenticated users to manage thumbnails (optional)
+CREATE POLICY "Authenticated can write thumbnails"
+  ON storage.objects
+  FOR INSERT
+  WITH CHECK (
+    bucket_id = 'thumbnails'
+    AND auth.uid() IS NOT NULL
+  );
+
+CREATE POLICY "Authenticated can update thumbnails"
+  ON storage.objects
+  FOR UPDATE
+  USING (
+    bucket_id = 'thumbnails'
+    AND auth.uid() IS NOT NULL
+  );
+
+CREATE POLICY "Authenticated can delete thumbnails"
+  ON storage.objects
+  FOR DELETE
+  USING (
+    bucket_id = 'thumbnails'
+    AND auth.uid() IS NOT NULL
+  );

@@ -7,7 +7,10 @@ import {
   Template,
 } from "@/types";
 import { isCXOUser } from "@/lib/sharingService";
-import { generateAndUploadThumbnail } from "@/lib/thumbnailService";
+import {
+  generateAndUploadThumbnail,
+  deleteThumbnail,
+} from "@/lib/thumbnailService";
 import { loadTemplateFromStorage } from "@/lib/templateService";
 
 const DEFAULT_CONTENT = ``;
@@ -369,13 +372,16 @@ export async function saveProjectFile(
     if (pdfContent) {
       try {
         const thumbnailPath = `${typPath.replace(".typ", "_thumb.png")}`;
-        await generateAndUploadThumbnail(pdfContent, thumbnailPath);
+        const storedPathOrUrl = await generateAndUploadThumbnail(
+          pdfContent,
+          thumbnailPath,
+        );
 
-        // Update database with thumbnail path
+        // Update database with thumbnail path or public URL
         const { error: thumbnailUpdateError } = await supabase
           .from("projects")
           .update({
-            thumbnail_path: thumbnailPath,
+            thumbnail_path: storedPathOrUrl,
             updated_at: new Date().toISOString(),
           })
           .eq("id", projectId);
@@ -434,7 +440,8 @@ export async function deleteProject(
 
     const filesToDelete = [typPath];
     if (thumbnail_path && thumbnail_path.trim() !== "") {
-      filesToDelete.push(thumbnail_path);
+      // Always delete from the thumbnails bucket using stored path
+      await deleteThumbnail(thumbnail_path);
     }
 
     // Delete all files from storage in one call

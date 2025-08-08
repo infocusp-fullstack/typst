@@ -111,7 +111,7 @@ export function ShareModal({
     try {
       await shareProject(projectId, currentUserId, selectedUser.id, permission);
       showToast.success(
-        `Shared with ${selectedUser.name || selectedUser.email}`
+        `Shared with ${selectedUser.name || selectedUser.email}`,
       );
       onClose();
       // setSelectedUser(null);
@@ -121,7 +121,7 @@ export function ShareModal({
     } catch (error) {
       console.error("Failed to share:", error);
       showToast.error(
-        error instanceof Error ? error.message : "Failed to share"
+        error instanceof Error ? error.message : "Failed to share",
       );
     } finally {
       setIsSharing(false);
@@ -141,14 +141,14 @@ export function ShareModal({
 
   const handleUpdatePermission = async (
     toSharedUserId: string,
-    newPermission: SharePermission
+    newPermission: SharePermission,
   ) => {
     try {
       await shareProject(
         projectId,
         currentUserId,
         toSharedUserId,
-        newPermission
+        newPermission,
       ); // This will update existing share
       showToast.success("Permission updated");
       loadSharedUsers();

@@ -13,6 +13,7 @@ export const showToast = {
     toast.error(message, {
       duration: 5000,
       position: "top-right",
+      closeButton: true,
     });
   },
 
@@ -20,6 +21,7 @@ export const showToast = {
     toast.warning(message, {
       duration: 4000,
       position: "top-right",
+      closeButton: true,
     });
   },
 

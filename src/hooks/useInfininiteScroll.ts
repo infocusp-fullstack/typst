@@ -21,6 +21,8 @@ interface UseInfiniteScrollReturn {
   loadMore: () => void;
   refresh: () => void;
   observerRef: (node: HTMLElement | null) => void;
+  optimisticRemove: (projectId: string) => void;
+  optimisticRename: (projectId: string, newTitle: string) => void;
 }
 
 export function useInfiniteScroll({
@@ -88,7 +90,7 @@ export function useInfiniteScroll({
               page,
               pageSize,
               filterToUse,
-              userIdToUse
+              userIdToUse,
             )
           : await fetchUserProjects(page, pageSize, filterToUse, userIdToUse);
 
@@ -103,7 +105,7 @@ export function useInfiniteScroll({
         setCurrentPage(page);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to load projects"
+          err instanceof Error ? err.message : "Failed to load projects",
         );
         // Reset to empty state on error
         if (page === 0) {
@@ -117,7 +119,7 @@ export function useInfiniteScroll({
         loadingRef.current = false;
       }
     },
-    [pageSize]
+    [pageSize],
   );
 
   // Load more function
@@ -132,6 +134,21 @@ export function useInfiniteScroll({
     setCurrentPage(0);
     loadProjects(0, true);
   }, [loadProjects]);
+
+  // Optimistic helpers
+  const optimisticRemove = useCallback((projectId: string) => {
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    setTotalCount((prev) => (prev > 0 ? prev - 1 : 0));
+  }, []);
+
+  const optimisticRename = useCallback(
+    (projectId: string, newTitle: string) => {
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, title: newTitle } : p)),
+      );
+    },
+    [],
+  );
 
   // Stable observer callback
   const observerRef = useCallback(
@@ -149,12 +166,12 @@ export function useInfiniteScroll({
         {
           threshold: 0.1,
           rootMargin: "100px",
-        }
+        },
       );
 
       if (node) observer.current.observe(node);
     },
-    [hasMore, loadMore]
+    [hasMore, loadMore],
   );
 
   // Initial load
@@ -214,5 +231,7 @@ export function useInfiniteScroll({
     loadMore,
     refresh,
     observerRef,
+    optimisticRemove,
+    optimisticRename,
   };
 }

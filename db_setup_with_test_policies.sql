@@ -45,6 +45,10 @@ CREATE INDEX idx_project_shares_shared_with ON project_shares(shared_with);
 CREATE INDEX idx_project_shares_shared_by ON project_shares(shared_by);
 CREATE INDEX idx_cxo_users_email ON cxo_users(email);
 
+-- Create public thumbnails bucket for previews (public read)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('thumbnails', 'thumbnails', true);
+
 -- RLS Policies for projects table
 
 -- 1. Users can view their own projects

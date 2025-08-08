@@ -120,23 +120,10 @@ export function TemplatePickerDialog({
   );
 }
 
-function isAbsoluteUrl(url?: string | null): boolean {
-  if (!url) return false;
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 async function resolvePreviewUrlForTemplate(
   template: Template,
 ): Promise<string | null> {
-  // Priority: thumbnail_path (storage path) -> preview_image_url (absolute URL) -> preview_image_url as storage path
-  if (isAbsoluteUrl(template.preview_image_url)) {
-    return template.preview_image_url as string;
-  }
+  // Priority: preview_image_url as storage path
   if (template.preview_image_url) {
     return (await getThumbnailUrl(template.preview_image_url)) as string | null;
   }
