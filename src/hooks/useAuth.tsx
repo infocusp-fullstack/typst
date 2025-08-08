@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [hasInitialSessionCheck, router, user],
+    [hasInitialSessionCheck, router],
   );
 
   useEffect(() => {

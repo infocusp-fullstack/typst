@@ -39,7 +39,7 @@ export async function shareProject(
   projectId: string,
   sharedBy: string,
   toUserId: string,
-  updatedPermission: SharePermission
+  updatedPermission: SharePermission,
 ): Promise<ProjectShare> {
   try {
     const supabase = await getAdminClient();
@@ -101,7 +101,7 @@ export async function shareProject(
 // Unshare a project
 export async function unshareProject(
   projectId: string,
-  sharedWith: string
+  sharedWith: string,
 ): Promise<void> {
   try {
     const supabase = getAdminClient();
@@ -120,7 +120,7 @@ export async function unshareProject(
 
 // Get all shares for a project with user details
 export async function getProjectShares(
-  projectId: string
+  projectId: string,
 ): Promise<(ProjectShare & { user?: User })[]> {
   try {
     const supabase = getAdminClient();
@@ -138,7 +138,7 @@ export async function getProjectShares(
       (data as ProjectShare[]).map(async (share) => {
         try {
           const { data: userData } = await supabase.auth.admin.getUserById(
-            share.shared_with
+            share.shared_with,
           );
           const user: User = {
             id: share.shared_with,
@@ -153,11 +153,11 @@ export async function getProjectShares(
         } catch (error) {
           console.error(
             `Failed to get user details for ${share.shared_with}:`,
-            error
+            error,
           );
           return { ...share, user: undefined };
         }
-      })
+      }),
     );
 
     return sharesWithUsers;
@@ -209,7 +209,7 @@ export async function searchUsers(query: string): Promise<User[]> {
 // Check if current user can edit a project
 export async function canEditProject(
   projectId: string,
-  userId: string
+  userId: string,
 ): Promise<boolean> {
   try {
     const supabase = getAdminClient();
@@ -243,7 +243,7 @@ export async function canEditProject(
 // Check if current user can view a project
 export async function canViewProject(
   projectId: string,
-  userId: string
+  userId: string,
 ): Promise<boolean> {
   try {
     const supabase = getAdminClient();

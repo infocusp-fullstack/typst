@@ -4,7 +4,7 @@ const path = require("path");
 // Copy PDF.js worker file to public directory
 const sourcePath = path.join(
   __dirname,
-  "../node_modules/pdfjs-dist/build/pdf.worker.min.mjs"
+  "../node_modules/pdfjs-dist/build/pdf.worker.min.mjs",
 );
 const destPath = path.join(__dirname, "../public/pdf.worker.min.js");
 

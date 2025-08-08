@@ -33,7 +33,6 @@ export async function loadTemplateFromStorage(
   }
 }
 
-// Fetch all active templates
 export async function fetchAvailableTemplates(): Promise<Template[]> {
   const supabase = getAdminClient();
   const { data, error } = await supabase
@@ -43,10 +42,10 @@ export async function fetchAvailableTemplates(): Promise<Template[]> {
     .order("created_at", { ascending: true });
 
   if (error) throw new Error(error.message);
-  return data as unknown as Template[];
+  return data as Template[];
 }
 
-export async function createTemplateInStorage(
+export async function setupNewTemplate(
   title: string,
   description: string,
   category: string,

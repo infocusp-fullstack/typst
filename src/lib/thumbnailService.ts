@@ -19,14 +19,16 @@ const DEFAULT_THUMBNAIL_OPTIONS: ThumbnailOptions = {
 export async function generateAndUploadThumbnail(
   pdfContent: Uint8Array,
   thumbnailPath: string,
-  options: ThumbnailOptions = {}
+  options: ThumbnailOptions = {},
 ): Promise<string> {
   try {
     const mergedOptions = { ...DEFAULT_THUMBNAIL_OPTIONS, ...options };
 
     if (pdfContent instanceof Uint8Array) {
       // Convert PDF to blob
-      const pdfBlob = new Blob([pdfContent as unknown as BlobPart], { type: "application/pdf" });
+      const pdfBlob = new Blob([pdfContent as unknown as BlobPart], {
+        type: "application/pdf",
+      });
 
       // Convert PDF to base64 image
       const base64Image = await convertPdfToBase64(pdfBlob, {
@@ -42,7 +44,7 @@ export async function generateAndUploadThumbnail(
         [Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0))],
         {
           type: "image/png",
-        }
+        },
       );
 
       // Upload to Supabase
@@ -75,7 +77,7 @@ export async function generateAndUploadThumbnail(
  */
 async function createFallbackThumbnail(
   thumbnailPath: string,
-  options: ThumbnailOptions
+  options: ThumbnailOptions,
 ): Promise<string> {
   try {
     // Create a simple canvas with PDF-like styling as a placeholder
@@ -110,7 +112,7 @@ async function createFallbackThumbnail(
           resolve(blob!);
         },
         "image/png",
-        options.quality
+        options.quality,
       );
     });
 
@@ -138,7 +140,7 @@ async function createFallbackThumbnail(
  * Get signed URL for thumbnail
  */
 export async function getThumbnailUrl(
-  thumbnailPath: string
+  thumbnailPath: string,
 ): Promise<string | null> {
   try {
     const supabase = getAdminClient();

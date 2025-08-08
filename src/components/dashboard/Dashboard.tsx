@@ -76,7 +76,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
-    null
+    null,
   );
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<FilterType>("owned");
@@ -169,47 +169,18 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     return () => clearTimeout(timer);
   }, [filter, refresh]);
 
-  // Listen for rename events
-  useEffect(() => {
-    const handleRenameEvent = (event: CustomEvent) => {
-      const { projectId, currentTitle } = event.detail;
-      setRenameModal({
-        isOpen: true,
-        projectId,
-        currentTitle,
-      });
-    };
-
-    window.addEventListener(
-      "rename-project",
-      handleRenameEvent as EventListener
-    );
-
-    return () => {
-      window.removeEventListener(
-        "rename-project",
-        handleRenameEvent as EventListener
-      );
-    };
-  }, []);
-
-  // Refresh projects when tab becomes visible
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        refresh();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [refresh]);
+  // Open rename modal via prop callback (replaces event-based approach)
+  const openRenameModal = useCallback(
+    (projectId: string, currentTitle: string) => {
+      setRenameModal({ isOpen: true, projectId, currentTitle });
+    },
+    [],
+  );
 
   const handleSearchChange = useCallback((query: string) => {
     setSearchQuery(query);
   }, []);
+
   const handleViewChange = (newView: "grid" | "list") => {
     setViewMode(newView);
     localStorage.setItem(getViewModeKey(), newView);
@@ -228,15 +199,20 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
     const title = prompt(
       "What would you like to name your document?",
-      "My New Document"
+      "My New Document",
     );
     if (!title?.trim()) return;
 
     try {
       setIsCreating(true);
       const newProject = await createNewProject(user.id, title.trim());
+
+      // Add the new project to the beginning of the list
+      // Note: You might want to refresh instead to ensure proper ordering
+      refresh();
+
+      setNavigatingToEditor(newProject.id);
       router.push(`/editor/${newProject.id}`);
-      setTimeout(refresh, 500);
     } catch (err) {
       showErrorAlert("create document", err);
     } finally {
@@ -249,7 +225,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       setNavigatingToEditor(projectId);
       router.push(`/editor/${projectId}`);
     },
-    [router]
+    [router],
   );
 
   const handleDeleteProject = useCallback(
@@ -267,7 +243,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         showErrorAlert("delete", err);
       }
     },
-    [refresh]
+    [refresh],
   );
 
   const handleRenameProject = useCallback(
@@ -279,12 +255,12 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         refresh();
       } catch (err) {
         alert(
-          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`
+          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`,
         );
         throw err;
       }
     },
-    []
+    [],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -307,7 +283,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           const alreadyHas = await userHasResume(user.id);
           if (alreadyHas) {
             alert(
-              "You already have a resume. Please delete it before creating a new one."
+              "You already have a resume. Please delete it before creating a new one.",
             );
             return;
           }
@@ -320,12 +296,11 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           user.id,
           title.trim(),
           template,
-          template.category === "resume" ? "resume" : "document"
+          template.category === "resume" ? "resume" : "document",
         );
 
-        console.log(`✅ Project created from template: ${newProject.id}`);
-
-        // Navigate and refresh
+        refresh();
+        setNavigatingToEditor(newProject.id);
         router.push(`/editor/${newProject.id}`);
       } catch (err) {
         console.error("Error creating project from template:", err);
@@ -334,7 +309,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         setIsCreatingFromTemplate(false);
       }
     },
-    [isCreating, isCreatingFromTemplate, user.id, router]
+    [isCreating, isCreatingFromTemplate, user.id, router],
   );
 
   const EmptyState = useMemo(
@@ -359,7 +334,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         </CardContent>
       </Card>
     ),
-    [searchQuery, handleCreateNewDocument, isCreating]
+    [searchQuery, handleCreateNewDocument, isCreating],
   );
 
   const LoadMoreIndicator = () => (
@@ -480,23 +455,23 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
               <>
                 {viewMode === "grid" ? (
                   <ProjectGrid
-                    key={`grid-${filter}-${searchQuery || "default"}-${projects.length}`}
                     projects={projects}
                     onOpenProject={handleOpenProject}
                     onDeleteProject={handleDeleteProject}
                     navigatingToEditor={navigatingToEditor}
                     currentUser={user}
                     isCXO={isCXO}
+                    onRenameRequest={openRenameModal}
                   />
                 ) : (
                   <ProjectList
-                    key={`list-${filter}-${searchQuery || "default"}-${projects.length}`}
                     projects={projects}
                     onOpenProject={handleOpenProject}
                     onDeleteProject={handleDeleteProject}
                     navigatingToEditor={navigatingToEditor}
                     currentUser={user}
                     isCXO={isCXO}
+                    onRenameRequest={openRenameModal}
                   />
                 )}
 

@@ -5,11 +5,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Card, CardContent } from "@/components/ui/card";
 import { Template } from "@/types";
 import { fetchAvailableTemplates } from "@/lib/templateService";
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { getThumbnailUrl } from "@/lib/thumbnailService";
+import { TemplateCard } from "./TemplateCard";
 
 interface TemplatePickerDialogProps {
   trigger: React.ReactNode;
@@ -25,6 +26,9 @@ export function TemplatePickerDialog({
   const [templates, setTemplates] = useState<Template[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [previewUrls, setPreviewUrls] = useState<Record<string, string | null>>(
+    {},
+  );
 
   useEffect(() => {
     if (isOpen && templates.length === 0) {
@@ -44,6 +48,13 @@ export function TemplatePickerDialog({
     try {
       const data = await fetchAvailableTemplates();
       setTemplates(data as Template[]);
+      // Resolve preview URLs lazily after templates load
+      const entries = await Promise.all(
+        (data as Template[]).map(
+          async (t) => [t.id, await resolvePreviewUrlForTemplate(t)] as const,
+        ),
+      );
+      setPreviewUrls(Object.fromEntries(entries));
     } catch (error) {
       console.error("Failed to load templates:", error);
     } finally {
@@ -67,7 +78,7 @@ export function TemplatePickerDialog({
     >
       <DialogTrigger asChild>{trigger}</DialogTrigger>
 
-      <DialogContent className="w-full max-w-lg sm:w-[90vw] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="w-full sm:w-[95vw] max-w-7xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Select a Template</DialogTitle>
         </DialogHeader>
@@ -83,32 +94,51 @@ export function TemplatePickerDialog({
           </p>
         ) : (
           <div className="pt-4">
-            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-              {templates.map((template) => (
-                <Card
-                  key={template.id}
-                  className="w-full cursor-pointer hover:ring-2 hover:ring-primary transition-all h-full"
-                  onClick={() => handleTemplateSelect(template)}
-                >
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <h3 className="font-semibold">{template.title}</h3>
-                      {template.category && (
-                        <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">
-                          {template.category}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {template.description || "No description"}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
+              {templates.map((template) => {
+                const previewUrl = previewUrls[template.id] ?? null;
+                return (
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    previewUrl={previewUrl}
+                    onImageError={() =>
+                      setPreviewUrls((prev) => ({
+                        ...prev,
+                        [template.id]: null,
+                      }))
+                    }
+                    onSelect={() => handleTemplateSelect(template)}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
       </DialogContent>
     </Dialog>
   );
+}
+
+function isAbsoluteUrl(url?: string | null): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+async function resolvePreviewUrlForTemplate(
+  template: Template,
+): Promise<string | null> {
+  // Priority: thumbnail_path (storage path) -> preview_image_url (absolute URL) -> preview_image_url as storage path
+  if (isAbsoluteUrl(template.preview_image_url)) {
+    return template.preview_image_url as string;
+  }
+  if (template.preview_image_url) {
+    return (await getThumbnailUrl(template.preview_image_url)) as string | null;
+  }
+  return null;
 }

@@ -39,7 +39,7 @@ export function RenameModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!newTitle.trim() || newTitle.trim() === currentTitle) {
       onClose();
       return;
@@ -50,14 +50,14 @@ export function RenameModal({
       await onRename(newTitle.trim());
       onClose();
     } catch (error) {
-      console.error('Failed to rename:', error);
+      console.error("Failed to rename:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
+    if (e.key === "Escape") {
       onClose();
     }
   };
@@ -71,7 +71,7 @@ export function RenameModal({
             Enter a new name for your document.
           </DialogDescription>
         </DialogHeader>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -86,7 +86,7 @@ export function RenameModal({
               />
             </div>
           </div>
-          
+
           <DialogFooter className="mt-6">
             <Button
               type="button"
@@ -98,7 +98,12 @@ export function RenameModal({
             </Button>
             <Button
               type="submit"
-              disabled={!newTitle.trim() || newTitle.trim() === currentTitle || isSubmitting || isLoading}
+              disabled={
+                !newTitle.trim() ||
+                newTitle.trim() === currentTitle ||
+                isSubmitting ||
+                isLoading
+              }
             >
               {isSubmitting ? "Renaming..." : "Rename"}
             </Button>
@@ -107,4 +112,4 @@ export function RenameModal({
       </DialogContent>
     </Dialog>
   );
-} 
+}

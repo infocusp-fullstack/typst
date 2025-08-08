@@ -7,14 +7,14 @@ import { TemplatePickerDialog } from "./TemplatePickerDialog";
 interface NewDocumentCardProps {
   userId: string;
   isCreating: boolean;
-  isCreatingFromTemplate?: boolean; // Add this prop
+  isCreatingFromTemplate?: boolean;
   onCreate: () => void;
   onCreateFromTemplate: (template: Template) => void;
 }
 
 export const NewDocumentCard = React.memo(function NewDocumentCard({
   isCreating,
-  isCreatingFromTemplate = false, // Default to false
+  isCreatingFromTemplate = false,
   onCreate,
   onCreateFromTemplate,
 }: NewDocumentCardProps) {
@@ -59,7 +59,7 @@ export const NewDocumentCard = React.memo(function NewDocumentCard({
               }`}
             >
               <CardContent className="flex flex-col items-center justify-center h-full p-6">
-                <div className="text-base text-black font-bold flex items-center justify-center gap-2.5 mb-3">
+                <div className="text-base text-muted-foreground flex items-center justify-center gap-2.5 mb-3">
                   {isCreatingFromTemplate ? (
                     <>
                       <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -72,7 +72,7 @@ export const NewDocumentCard = React.memo(function NewDocumentCard({
                     </>
                   )}
                 </div>
-                <span className="text-sm text-muted-foreground font-medium">
+                <span className="text-sm text-muted-foreground">
                   {isCreatingFromTemplate
                     ? "Setting up your document..."
                     : " Choose a Template"}

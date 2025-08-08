@@ -8,20 +8,19 @@ export type Project = {
   created_at: string;
   updated_at: string;
   thumbnail_path?: string;
-
 };
+
 export type Template = {
   id: string;
   title: string;
   description: string | null;
-  content?: string;
   storage_path: string;
+  content?: string;
   preview_image_url: string | null;
   category: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
-  thumbnail_path?: string;
 };
 
 export type ProjectShare = {
@@ -41,7 +40,7 @@ export type User = {
   created_at: string;
 };
 
-export type  ProjectWithShares = Project & {
+export type ProjectWithShares = Project & {
   project_shares?: [{ shared_with: string }];
   shares?: ProjectShare[];
   owner?: User;

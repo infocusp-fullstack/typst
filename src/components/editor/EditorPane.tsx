@@ -126,13 +126,15 @@ export function EditorPane({
     };
 
     // Disable editing in read-only mode
-    const readOnlyKeymap = readOnly ? [] : [
-      ...historyKeymap,
-      ...defaultKeymap,
-      indentWithTab,
-      { key: "Mod-z", run: undo },
-      { key: "Mod-Shift-z", run: redo },
-    ];
+    const readOnlyKeymap = readOnly
+      ? []
+      : [
+          ...historyKeymap,
+          ...defaultKeymap,
+          indentWithTab,
+          { key: "Mod-z", run: undo },
+          { key: "Mod-Shift-z", run: redo },
+        ];
 
     const state = EditorState.create({
       doc: initialContent,
@@ -140,10 +142,7 @@ export function EditorPane({
         lineNumbers(),
         history(),
         typstSyntax(),
-        keymap.of([
-          ...readOnlyKeymap,
-          saveKeymap,
-        ]),
+        keymap.of([...readOnlyKeymap, saveKeymap]),
         updateListener,
         createEditorTheme(),
         // Disable editing in read-only mode
@@ -164,10 +163,10 @@ export function EditorPane({
   }, [theme, readOnly]);
 
   return (
-    <div 
-      ref={editorRef} 
-      className={`h-full ${readOnly ? 'cursor-not-allowed' : ''}`}
-      title={readOnly ? 'Read-only mode' : ''}
+    <div
+      ref={editorRef}
+      className={`h-full ${readOnly ? "cursor-not-allowed" : ""}`}
+      title={readOnly ? "Read-only mode" : ""}
     />
   );
 }
