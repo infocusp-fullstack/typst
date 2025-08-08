@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
@@ -9,18 +9,20 @@ import { Plus, RefreshCw } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import {
   createNewProject,
+  createProjectFromTemplate,
   deleteProject,
   renameProject,
+  userHasResume,
 } from "@/lib/projectService";
 import { Header } from "./Header";
-import { ViewToggle } from "./ViewToggle";
+import ViewToggle from "./ViewToggle";
 import { FilterDropdown } from "@/components/dashboard/FilterDropdown";
 import { ProjectGrid } from "@/components/dashboard/ProjectGrid";
 import { ProjectList } from "@/components/dashboard/ProjectList";
 import { useInfiniteScroll } from "@/hooks/useInfininiteScroll";
 import { NewDocumentCard } from "@/components/dashboard/NewDocumentCard";
 import { RenameModal } from "@/components/dashboard/RenameModal";
-import { FilterType } from "@/types";
+import { FilterType, Template } from "@/types";
 import { isCXOUser } from "@/lib/sharingService";
 
 interface DashboardProps {
@@ -28,13 +30,57 @@ interface DashboardProps {
   signOut: () => Promise<void>;
 }
 
+const GridSkeleton = () => (
+  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+    {Array(10)
+      .fill(0)
+      .map((_, i) => (
+        <div key={i} className="animate-pulse">
+          <div className="w-full aspect-[210/297] bg-muted rounded-lg mb-3" />
+          <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+          <div className="h-3 bg-muted rounded w-1/2" />
+        </div>
+      ))}
+  </div>
+);
+
+const ListSkeleton = () => (
+  <div className="space-y-2">
+    {Array(8)
+      .fill(0)
+      .map((_, i) => (
+        <div
+          key={i}
+          className="animate-pulse flex items-center gap-4 p-4 border rounded-lg"
+        >
+          <div className="w-10 h-10 bg-muted rounded-lg flex-shrink-0" />
+          <div className="flex-1">
+            <div className="h-4 bg-muted rounded w-1/2 mb-2" />
+            <div className="h-3 bg-muted rounded w-1/4" />
+          </div>
+          <div className="w-16" />
+          <div className="w-8 h-8 bg-muted rounded" />
+        </div>
+      ))}
+  </div>
+);
+
+const showErrorAlert = (operation: string, error: unknown) => {
+  const message = error instanceof Error ? error.message : "Unknown error";
+  alert(`Failed to ${operation}: ${message}`);
+};
+
 export default function Dashboard({ user, signOut }: DashboardProps) {
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingFromTemplate, setIsCreatingFromTemplate] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
-    null
+    null,
   );
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [filter, setFilter] = useState<FilterType>("owned");
+  const [isCXO, setIsCXO] = useState(false);
   const [renameModal, setRenameModal] = useState<{
     isOpen: boolean;
     projectId: string;
@@ -44,10 +90,6 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     projectId: "",
     currentTitle: "",
   });
-
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [filter, setFilter] = useState<FilterType>("owned");
-  const [isCXO, setIsCXO] = useState(false);
 
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
@@ -123,32 +165,20 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     const timer = setTimeout(() => {
       refresh();
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, [filter, refresh]);
 
-  // Listen for rename events
-  useEffect(() => {
-    const handleRenameEvent = (event: CustomEvent) => {
-      const { projectId, currentTitle } = event.detail;
-      setRenameModal({
-        isOpen: true,
-        projectId,
-        currentTitle,
-      });
-    };
+  // Open rename modal via prop callback (replaces event-based approach)
+  const openRenameModal = useCallback(
+    (projectId: string, currentTitle: string) => {
+      setRenameModal({ isOpen: true, projectId, currentTitle });
+    },
+    [],
+  );
 
-    window.addEventListener(
-      "rename-project",
-      handleRenameEvent as EventListener
-    );
-
-    return () => {
-      window.removeEventListener(
-        "rename-project",
-        handleRenameEvent as EventListener
-      );
-    };
+  const handleSearchChange = useCallback((query: string) => {
+    setSearchQuery(query);
   }, []);
 
   const handleViewChange = (newView: "grid" | "list") => {
@@ -169,7 +199,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
     const title = prompt(
       "What would you like to name your document?",
-      "My New Document"
+      "My New Document",
     );
     if (!title?.trim()) return;
 
@@ -184,9 +214,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       setNavigatingToEditor(newProject.id);
       router.push(`/editor/${newProject.id}`);
     } catch (err) {
-      alert(
-        `Failed to create document: ${err instanceof Error ? err.message : "Unknown error"}`
-      );
+      showErrorAlert("create document", err);
     } finally {
       setIsCreating(false);
     }
@@ -197,7 +225,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       setNavigatingToEditor(projectId);
       router.push(`/editor/${projectId}`);
     },
-    [router]
+    [router],
   );
 
   const handleDeleteProject = useCallback(
@@ -212,12 +240,10 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         // Refresh the list to ensure consistency
         refresh();
       } catch (err) {
-        alert(
-          `Failed to delete: ${err instanceof Error ? err.message : "Unknown error"}`
-        );
+        showErrorAlert("delete", err);
       }
     },
-    [refresh]
+    [refresh],
   );
 
   const handleRenameProject = useCallback(
@@ -229,57 +255,86 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         refresh();
       } catch (err) {
         alert(
-          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`
+          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`,
         );
         throw err;
       }
     },
-    []
+    [],
   );
 
   const handleSignOut = useCallback(async () => {
-    if (confirm("Are you sure you want to sign out?")) {
-      try {
-        await signOut();
-      } catch {
-        alert("Failed to sign out");
-      }
+    if (!confirm("Are you sure you want to sign out?")) return;
+
+    try {
+      await signOut();
+    } catch {
+      alert("Failed to sign out");
     }
   }, [signOut]);
 
-  const GridSkeleton = () => (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-      {Array(10)
-        .fill(0)
-        .map((_, i) => (
-          <div key={i} className="animate-pulse">
-            <div className="w-full aspect-[210/297] bg-muted rounded-lg mb-3" />
-            <div className="h-4 bg-muted rounded w-3/4 mb-2" />
-            <div className="h-3 bg-muted rounded w-1/2" />
-          </div>
-        ))}
-    </div>
+  const handleCreateFromTemplate = useCallback(
+    async (template: Template) => {
+      if (isCreating || isCreatingFromTemplate) return;
+
+      try {
+        setIsCreatingFromTemplate(true);
+        if (template.category === "resume") {
+          const alreadyHas = await userHasResume(user.id);
+          if (alreadyHas) {
+            alert(
+              "You already have a resume. Please delete it before creating a new one.",
+            );
+            return;
+          }
+        }
+
+        const title = prompt("Name your document", template.title + " Copy");
+        if (!title?.trim()) return;
+
+        const newProject = await createProjectFromTemplate(
+          user.id,
+          title.trim(),
+          template,
+          template.category === "resume" ? "resume" : "document",
+        );
+
+        refresh();
+        setNavigatingToEditor(newProject.id);
+        router.push(`/editor/${newProject.id}`);
+      } catch (err) {
+        console.error("Error creating project from template:", err);
+        alert("Something went wrong while creating your document.");
+      } finally {
+        setIsCreatingFromTemplate(false);
+      }
+    },
+    [isCreating, isCreatingFromTemplate, user.id, router],
   );
 
-  const ListSkeleton = () => (
-    <div className="space-y-2">
-      {Array(8)
-        .fill(0)
-        .map((_, i) => (
-          <div
-            key={i}
-            className="animate-pulse flex items-center gap-4 p-4 border rounded-lg"
-          >
-            <div className="w-10 h-10 bg-muted rounded-lg flex-shrink-0" />
-            <div className="flex-1">
-              <div className="h-4 bg-muted rounded w-1/2 mb-2" />
-              <div className="h-3 bg-muted rounded w-1/4" />
-            </div>
-            <div className="w-16" />
-            <div className="w-8 h-8 bg-muted rounded" />
-          </div>
-        ))}
-    </div>
+  const EmptyState = useMemo(
+    () => (
+      <Card className="border-dashed">
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <div className="text-4xl mb-4">📄</div>
+          <h3 className="text-lg font-semibold mb-2">
+            {searchQuery ? "No documents found" : "No documents yet"}
+          </h3>
+          <p className="text-muted-foreground text-center mb-4">
+            {searchQuery
+              ? "Try adjusting your search"
+              : "Create your first document to get started"}
+          </p>
+          {!searchQuery && (
+            <Button onClick={handleCreateNewDocument} disabled={isCreating}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Document
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    ),
+    [searchQuery, handleCreateNewDocument, isCreating],
   );
 
   const LoadMoreIndicator = () => (
@@ -312,10 +367,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         user={user}
         theme={theme}
         searchQuery={searchQuery}
-        onSearchChange={useCallback(
-          (query: string) => setSearchQuery(query),
-          []
-        )}
+        onSearchChange={handleSearchChange}
         onToggleTheme={toggleTheme}
         onSignOut={handleSignOut}
       />
@@ -324,8 +376,11 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         <div className="mx-auto max-w-7xl space-y-6">
           {/* Create Document Section */}
           <NewDocumentCard
+            userId={user.id}
             isCreating={isCreating}
+            isCreatingFromTemplate={isCreatingFromTemplate}
             onCreate={handleCreateNewDocument}
+            onCreateFromTemplate={handleCreateFromTemplate}
           />
 
           {error && (
@@ -395,53 +450,28 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                 <ListSkeleton />
               )
             ) : projects.length === 0 ? (
-              <Card className="border-dashed">
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <div className="text-4xl mb-4">📄</div>
-                  <h3 className="text-lg font-semibold mb-2">
-                    {searchQuery ? "No documents found" : "No documents yet"}
-                  </h3>
-                  <p className="text-muted-foreground text-center mb-4">
-                    {searchQuery
-                      ? "Try adjusting your search"
-                      : filter === "owned"
-                        ? "Create your first document to get started"
-                        : filter === "shared"
-                          ? "No documents have been shared with you yet"
-                          : "No documents available"}
-                  </p>
-                  {!searchQuery && filter === "owned" && (
-                    <Button
-                      onClick={handleCreateNewDocument}
-                      disabled={isCreating}
-                    >
-                      <Plus className="mr-2 h-4 w-4" />
-                      Create Document
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
+              EmptyState
             ) : (
               <>
                 {viewMode === "grid" ? (
                   <ProjectGrid
-                    key={`grid-${filter}-${searchQuery || "default"}-${projects.length}`}
                     projects={projects}
                     onOpenProject={handleOpenProject}
                     onDeleteProject={handleDeleteProject}
                     navigatingToEditor={navigatingToEditor}
                     currentUser={user}
                     isCXO={isCXO}
+                    onRenameRequest={openRenameModal}
                   />
                 ) : (
                   <ProjectList
-                    key={`list-${filter}-${searchQuery || "default"}-${projects.length}`}
                     projects={projects}
                     onOpenProject={handleOpenProject}
                     onDeleteProject={handleDeleteProject}
                     navigatingToEditor={navigatingToEditor}
                     currentUser={user}
                     isCXO={isCXO}
+                    onRenameRequest={openRenameModal}
                   />
                 )}
 

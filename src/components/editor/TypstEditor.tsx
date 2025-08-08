@@ -64,7 +64,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         setIsCompiling(false);
       }
     },
-    [$typst, isTypstReady]
+    [$typst, isTypstReady],
   );
 
   useEffect(() => {
@@ -139,7 +139,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         projectId,
         typPath,
         contentRef.current,
-        pdfContent || undefined
+        pdfContent || undefined,
       );
       setLastSaved(new Date());
       setHasChanges(false);
@@ -154,7 +154,9 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     if (!isTypstReady || !$typst) return;
     try {
       const data = await $typst.pdf({ mainContent: contentRef.current });
-      const blob = new Blob([data as unknown as BlobPart], { type: "application/pdf" });
+      const blob = new Blob([data as unknown as BlobPart], {
+        type: "application/pdf",
+      });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;

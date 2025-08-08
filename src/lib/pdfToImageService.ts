@@ -20,7 +20,7 @@ const DEFAULT_OPTIONS: PdfToImageOptions = {
  */
 export async function convertPdfToCanvas(
   pdfBlob: Blob,
-  options: PdfToImageOptions = {}
+  options: PdfToImageOptions = {},
 ): Promise<HTMLCanvasElement> {
   try {
     const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
@@ -40,7 +40,7 @@ export async function convertPdfToCanvas(
     const viewport = page.getViewport({ scale: 1.0 });
     const scale = Math.min(
       mergedOptions.width! / viewport.width,
-      mergedOptions.height! / viewport.height
+      mergedOptions.height! / viewport.height,
     );
     const scaledViewport = page.getViewport({ scale });
 
@@ -74,7 +74,7 @@ export async function convertPdfToCanvas(
  */
 export async function convertPdfToBase64(
   pdfBlob: Blob,
-  options: PdfToImageOptions = {}
+  options: PdfToImageOptions = {},
 ): Promise<string> {
   try {
     const canvas = await convertPdfToCanvas(pdfBlob, options);
@@ -82,7 +82,7 @@ export async function convertPdfToBase64(
     // Convert canvas to base64
     const base64 = canvas.toDataURL(
       `image/${options.format || "png"}`,
-      options.quality ? options.quality / 100 : 0.8
+      options.quality ? options.quality / 100 : 0.8,
     );
 
     return base64;

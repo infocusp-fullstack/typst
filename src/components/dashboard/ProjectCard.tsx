@@ -26,6 +26,7 @@ interface ProjectCardProps {
   isNavigating?: boolean;
   currentUser: User;
   isCXO: boolean;
+  onRename: () => void;
 }
 
 const ProjectCard = React.memo(
@@ -36,6 +37,7 @@ const ProjectCard = React.memo(
     isNavigating = false,
     currentUser,
     isCXO,
+    onRename,
   }: ProjectCardProps) => {
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
     const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
@@ -144,14 +146,7 @@ const ProjectCard = React.memo(
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              // This will be handled by the parent component
-                              const event = new CustomEvent("rename-project", {
-                                detail: {
-                                  projectId: project.id,
-                                  currentTitle: project.title,
-                                },
-                              });
-                              window.dispatchEvent(event);
+                              onRename();
                             }}
                             className="cursor-pointer"
                           >
@@ -190,7 +185,7 @@ const ProjectCard = React.memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 ProjectCard.displayName = "ProjectCard";

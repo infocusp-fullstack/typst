@@ -88,14 +88,9 @@ export function useInfiniteScroll({
               page,
               pageSize,
               filterToUse,
-              userIdToUse
+              userIdToUse,
             )
-          : await fetchUserProjects(
-              page,
-              pageSize,
-              filterToUse,
-              userIdToUse
-            );
+          : await fetchUserProjects(page, pageSize, filterToUse, userIdToUse);
 
         if (isRefresh || page === 0) {
           setProjects([...result.projects]);
@@ -108,7 +103,7 @@ export function useInfiniteScroll({
         setCurrentPage(page);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to load projects"
+          err instanceof Error ? err.message : "Failed to load projects",
         );
         // Reset to empty state on error
         if (page === 0) {
@@ -122,7 +117,7 @@ export function useInfiniteScroll({
         loadingRef.current = false;
       }
     },
-    [pageSize]
+    [pageSize],
   );
 
   // Load more function
@@ -154,12 +149,12 @@ export function useInfiniteScroll({
         {
           threshold: 0.1,
           rootMargin: "100px",
-        }
+        },
       );
 
       if (node) observer.current.observe(node);
     },
-    [hasMore, loadMore]
+    [hasMore, loadMore],
   );
 
   // Initial load

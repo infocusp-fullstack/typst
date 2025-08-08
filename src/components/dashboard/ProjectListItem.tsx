@@ -26,6 +26,7 @@ interface ProjectListItemProps {
   isNavigating?: boolean;
   currentUser: User;
   isCXO: boolean;
+  onRename: () => void;
 }
 
 const ProjectListItem = React.memo(
@@ -36,6 +37,7 @@ const ProjectListItem = React.memo(
     isNavigating = false,
     currentUser,
     isCXO,
+    onRename,
   }: ProjectListItemProps) => {
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
     const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
@@ -151,14 +153,7 @@ const ProjectListItem = React.memo(
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
-                    // This will be handled by the parent component
-                    const event = new CustomEvent("rename-project", {
-                      detail: {
-                        projectId: project.id,
-                        currentTitle: project.title,
-                      },
-                    });
-                    window.dispatchEvent(event);
+                    onRename();
                   }}
                   className="cursor-pointer"
                 >
@@ -186,7 +181,7 @@ const ProjectListItem = React.memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 ProjectListItem.displayName = "ProjectListItem";

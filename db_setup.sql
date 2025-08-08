@@ -5,6 +5,8 @@ CREATE TABLE projects (
   title TEXT NOT NULL,
   typ_path TEXT NOT NULL,
   thumbnail_path TEXT,
+  project_type TEXT NOT NULL DEFAULT 'document' CHECK (project_type IN ('document', 'resume')),
+  template_id UUID NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -366,3 +368,51 @@ CREATE POLICY "CXO users can delete all files" ON storage.objects
       )
     )
   );
+
+-- Templates table for reusable document templates
+CREATE TABLE templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  description TEXT,
+  content TEXT,
+  storage_path TEXT NOT NULL,
+  preview_image_url TEXT,
+  category TEXT NOT NULL DEFAULT 'resume',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE templates ENABLE ROW LEVEL SECURITY;
+
+-- Only CXO users can manage and view templates by default
+CREATE POLICY "CXO can view templates" ON templates
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM cxo_users cu 
+      WHERE cu.email = (
+        SELECT email FROM auth.users WHERE id = auth.uid()
+      )
+    )
+  );
+
+CREATE POLICY "CXO can manage templates" ON templates
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM cxo_users cu 
+      WHERE cu.email = (
+        SELECT email FROM auth.users WHERE id = auth.uid()
+      )
+    )
+  ) WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM cxo_users cu 
+      WHERE cu.email = (
+        SELECT email FROM auth.users WHERE id = auth.uid()
+      )
+    )
+  );
+
+-- Indexes for templates
+CREATE INDEX idx_templates_active ON templates(is_active);
+CREATE INDEX idx_templates_category ON templates(category);

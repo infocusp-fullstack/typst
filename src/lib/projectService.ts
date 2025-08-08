@@ -1,7 +1,14 @@
 import { getAdminClient } from "@/lib/supabaseClient";
-import { Project, FilterType, PDFContent, ProjectWithShares } from "@/types";
+import {
+  Project,
+  FilterType,
+  PDFContent,
+  ProjectWithShares,
+  Template,
+} from "@/types";
 import { isCXOUser } from "@/lib/sharingService";
 import { generateAndUploadThumbnail } from "@/lib/thumbnailService";
+import { loadTemplateFromStorage } from "@/lib/templateService";
 
 const DEFAULT_CONTENT = ``;
 const PAGE_SIZE = 20;
@@ -11,7 +18,7 @@ export async function fetchUserProjects(
   page: number = 0,
   pageSize: number = PAGE_SIZE,
   filter: FilterType = "owned",
-  userId: string
+  userId: string,
 ): Promise<{
   projects: ProjectWithShares[];
   hasMore: boolean;
@@ -39,7 +46,7 @@ export async function fetchUserProjects(
           *,
           project_shares!inner(shared_with)
         `,
-          { count: "exact" }
+          { count: "exact" },
         )
         .eq("project_shares.shared_with", userId)
         .order("updated_at", { ascending: false })
@@ -67,7 +74,7 @@ export async function fetchUserProjects(
     // Clean up the data structure for shared projects
     const projects =
       filter === "shared"
-        ? (data as ProjectWithShares[])?.map((item) => ({
+        ? ((data as ProjectWithShares[])?.map((item) => ({
             id: item.id,
             user_id: item.user_id,
             title: item.title,
@@ -76,7 +83,9 @@ export async function fetchUserProjects(
             created_at: item.created_at,
             updated_at: item.updated_at,
             project_shares: item.project_shares,
-          })) || []
+            project_type: item.project_type,
+            template_id: item.template_id,
+          })) as ProjectWithShares[]) || []
         : (data as ProjectWithShares[]) || [];
 
     const hasMore = (page + 1) * pageSize < (count || 0);
@@ -96,7 +105,7 @@ export async function searchUserProjects(
   page: number = 0,
   pageSize: number = PAGE_SIZE,
   filter: FilterType = "owned",
-  userId: string
+  userId: string,
 ): Promise<{
   projects: ProjectWithShares[];
   hasMore: boolean;
@@ -125,7 +134,7 @@ export async function searchUserProjects(
           *,
           project_shares!inner(shared_with)
         `,
-          { count: "exact" }
+          { count: "exact" },
         )
         .eq("project_shares.shared_with", userId)
         .ilike("title", `%${searchQuery.trim()}%`)
@@ -165,6 +174,8 @@ export async function searchUserProjects(
             created_at: item.created_at,
             updated_at: item.updated_at,
             project_shares: item.project_shares,
+            project_type: item.project_type,
+            template_id: item.template_id,
           })) || []
         : (data as ProjectWithShares[]) || [];
 
@@ -181,7 +192,7 @@ export async function searchUserProjects(
 }
 
 export async function fetchUserProjectById(
-  projectId: string
+  projectId: string,
 ): Promise<Project | null> {
   try {
     const supabase = getAdminClient();
@@ -200,6 +211,59 @@ export async function fetchUserProjectById(
     console.error(error);
     return null;
   }
+}
+export async function createProjectFromTemplate(
+  userId: string,
+  title: string,
+  template: Template,
+  projectType: "resume" | "document" = "document",
+): Promise<Project> {
+  const projectId = crypto.randomUUID();
+  const typPath = `${userId}/${projectId}/main.typ`;
+  const supabase = getAdminClient();
+
+  const templateContent = await loadTemplateFromStorage(template.storage_path);
+
+  const { error: uploadError } = await supabase.storage
+    .from("user-projects")
+    .upload(typPath, new Blob([templateContent], { type: "text/plain" }), {
+      upsert: true,
+      contentType: "text/plain",
+    });
+
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { data, error: insertError } = await supabase
+    .from("projects")
+    .insert([
+      {
+        id: projectId,
+        user_id: userId,
+        title,
+        typ_path: typPath,
+        template_id: template.id,
+        project_type: projectType,
+      },
+    ])
+    .select()
+    .single();
+
+  if (insertError) throw new Error(insertError.message);
+
+  return data as Project;
+}
+
+export async function userHasResume(userId: string): Promise<boolean> {
+  const supabase = getAdminClient();
+
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("project_type", "resume")
+    .maybeSingle();
+
+  return !!data && !error;
 }
 
 /* ---------- Load project file ---------- */
@@ -234,7 +298,7 @@ export async function loadProjectFile(path: string): Promise<string> {
 /* ---------- Create new project with initial file ---------- */
 export async function createNewProject(
   userId: string,
-  title: string = "Untitled Document"
+  title: string = "Untitled Document",
 ): Promise<Project> {
   try {
     const projectId = crypto.randomUUID();
@@ -284,7 +348,7 @@ export async function saveProjectFile(
   projectId: string,
   typPath: string,
   code: string,
-  pdfContent?: PDFContent
+  pdfContent?: PDFContent,
 ): Promise<void> {
   try {
     const supabase = getAdminClient();
@@ -319,7 +383,7 @@ export async function saveProjectFile(
         if (thumbnailUpdateError) {
           console.error(
             "Failed to update thumbnail path:",
-            thumbnailUpdateError
+            thumbnailUpdateError,
           );
         }
       } catch (thumbnailError) {
@@ -334,7 +398,7 @@ export async function saveProjectFile(
 /* ---------- Rename project ---------- */
 export async function renameProject(
   projectId: string,
-  newTitle: string
+  newTitle: string,
 ): Promise<Project> {
   try {
     const supabase = getAdminClient();
@@ -363,7 +427,7 @@ export async function renameProject(
 export async function deleteProject(
   projectId: string,
   typPath: string,
-  thumbnail_path?: string
+  thumbnail_path?: string,
 ): Promise<void> {
   try {
     const supabase = getAdminClient();
@@ -389,11 +453,8 @@ export async function deleteProject(
       .eq("id", projectId);
 
     if (dbError) {
-      console.log(`Database delete failed: ${dbError.message}`);
       throw new Error("Failed to delete");
     }
-
-    console.log(`Project ${projectId} deleted successfully`);
   } catch (error) {
     console.error("Project deletion failed:", error);
     throw error;

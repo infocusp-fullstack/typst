@@ -42,7 +42,7 @@ export const getAdminClient = () => {
 
     if (!serviceRoleKey) {
       throw new Error(
-        "SUPABASE_SERVICE_ROLE_KEY is required for admin operations"
+        "SUPABASE_SERVICE_ROLE_KEY is required for admin operations",
       );
     }
 

@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Grid3X3, List } from "lucide-react";
+import React from "react";
 
 interface ViewToggleProps {
   view: "grid" | "list";
   onViewChange: (view: "grid" | "list") => void;
 }
 
-export function ViewToggle({ view, onViewChange }: ViewToggleProps) {
+const ViewToggle = React.memo(({ view, onViewChange }: ViewToggleProps) => {
   return (
     <div className="flex items-center border rounded-md p-1">
       <Button
@@ -27,4 +28,7 @@ export function ViewToggle({ view, onViewChange }: ViewToggleProps) {
       </Button>
     </div>
   );
-}
+});
+
+ViewToggle.displayName = "ViewToggle";
+export default ViewToggle;
