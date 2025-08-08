@@ -3,7 +3,11 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import { Loading } from "@/components/ui/loading";
-import Dashboard from "@/components/dashboard/Dashboard";
+import dynamic from "next/dynamic";
+const Dashboard = dynamic(() => import("@/components/dashboard/Dashboard"), {
+  ssr: false,
+  loading: () => <Loading text="Loading..." fullScreen />,
+});
 
 export default function DashboardPage() {
   const { user, isLoading, signOut } = useAuth();

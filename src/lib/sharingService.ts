@@ -34,12 +34,28 @@ export async function isCXOUser(userId: string): Promise<boolean> {
   }
 }
 
+export async function isCXOByEmail(email?: string | null): Promise<boolean> {
+  try {
+    if (!email) return false;
+    const supabase = getAdminClient();
+    const { data, error } = await supabase
+      .from("cxo_users")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+    if (error) return false;
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
 // Share a project with another user
 export async function shareProject(
   projectId: string,
   sharedBy: string,
   toUserId: string,
-  updatedPermission: SharePermission,
+  updatedPermission: SharePermission
 ): Promise<ProjectShare> {
   try {
     const supabase = await getAdminClient();
@@ -101,7 +117,7 @@ export async function shareProject(
 // Unshare a project
 export async function unshareProject(
   projectId: string,
-  sharedWith: string,
+  sharedWith: string
 ): Promise<void> {
   try {
     const supabase = getAdminClient();
@@ -120,7 +136,7 @@ export async function unshareProject(
 
 // Get all shares for a project with user details
 export async function getProjectShares(
-  projectId: string,
+  projectId: string
 ): Promise<(ProjectShare & { user?: User })[]> {
   try {
     const supabase = getAdminClient();
@@ -138,7 +154,7 @@ export async function getProjectShares(
       (data as ProjectShare[]).map(async (share) => {
         try {
           const { data: userData } = await supabase.auth.admin.getUserById(
-            share.shared_with,
+            share.shared_with
           );
           const user: User = {
             id: share.shared_with,
@@ -153,11 +169,11 @@ export async function getProjectShares(
         } catch (error) {
           console.error(
             `Failed to get user details for ${share.shared_with}:`,
-            error,
+            error
           );
           return { ...share, user: undefined };
         }
-      }),
+      })
     );
 
     return sharesWithUsers;
@@ -210,19 +226,22 @@ export async function searchUsers(query: string): Promise<User[]> {
 export async function canEditProject(
   projectId: string,
   userId: string,
+  projectOwnerId?: string
 ): Promise<boolean> {
   try {
     const supabase = getAdminClient();
 
-    // Check if user owns the project
-    const { data: project } = await supabase
-      .from("projects")
-      .select("user_id")
-      .eq("id", projectId)
-      .single();
+    // Short-circuit if ownerId already known
+    if (projectOwnerId && projectOwnerId === userId) return true;
 
-    if (project?.user_id === userId) {
-      return true;
+    // If ownerId not provided, fetch it once
+    if (!projectOwnerId) {
+      const { data: project } = await supabase
+        .from("projects")
+        .select("user_id")
+        .eq("id", projectId)
+        .single();
+      if (project?.user_id === userId) return true;
     }
 
     // Check if user has edit permission through sharing
@@ -243,7 +262,7 @@ export async function canEditProject(
 // Check if current user can view a project
 export async function canViewProject(
   projectId: string,
-  userId: string,
+  userId: string
 ): Promise<boolean> {
   try {
     const supabase = getAdminClient();

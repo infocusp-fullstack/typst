@@ -23,7 +23,9 @@ import { useInfiniteScroll } from "@/hooks/useInfininiteScroll";
 import { NewDocumentCard } from "@/components/dashboard/NewDocumentCard";
 import { RenameModal } from "@/components/dashboard/RenameModal";
 import { FilterType, Template } from "@/types";
-import { isCXOUser } from "@/lib/sharingService";
+import { isCXOByEmail } from "@/lib/sharingService";
+import { useDialog } from "@/hooks/useDialog";
+import { showToast } from "@/lib/toast";
 
 interface DashboardProps {
   user: User;
@@ -65,22 +67,23 @@ const ListSkeleton = () => (
   </div>
 );
 
-const showErrorAlert = (operation: string, error: unknown) => {
-  const message = error instanceof Error ? error.message : "Unknown error";
-  alert(`Failed to ${operation}: ${message}`);
+const showErrorAlert = (operation: string) => {
+  showToast.error(`Failed to ${operation}`);
 };
 
 export default function Dashboard({ user, signOut }: DashboardProps) {
+  const { confirm, prompt } = useDialog();
   const [isCreating, setIsCreating] = useState(false);
   const [isCreatingFromTemplate, setIsCreatingFromTemplate] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
-    null,
+    null
   );
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<FilterType>("owned");
   const [isCXO, setIsCXO] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [renameModal, setRenameModal] = useState<{
     isOpen: boolean;
     projectId: string;
@@ -98,21 +101,21 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const getViewModeKey = () => `dashboard-view-mode-${user.id}`;
   const getFilterKey = () => `dashboard-filter-${user.id}`;
 
-  // Debounce search query
+  // Debounce search query (only after preferences are loaded)
   useEffect(() => {
+    if (!preferencesLoaded) return;
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
     }, 300);
-
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, preferencesLoaded]);
 
   // Load view and filter preferences from localStorage (user-specific)
   useEffect(() => {
     const loadUserPreferences = async () => {
       // Check CXO status
       try {
-        const cxoSstatus = await isCXOUser(user.id);
+        const cxoSstatus = await isCXOByEmail(user.email);
         setIsCXO(cxoSstatus);
       } catch (error) {
         console.error("Error checking CXO status:", error);
@@ -137,6 +140,8 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       ) {
         setFilter(savedFilter);
       }
+
+      setPreferencesLoaded(true);
     };
 
     loadUserPreferences();
@@ -152,6 +157,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     refresh,
     observerRef,
   } = useInfiniteScroll({
+    initialLoad: preferencesLoaded,
     searchQuery: debouncedSearchQuery,
     pageSize: 20,
     filter,
@@ -159,22 +165,12 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     userEmail: user.email || "",
   });
 
-  // Ensure data is loaded when filter changes (including from localStorage)
-  useEffect(() => {
-    // Small delay to ensure filter state is properly set
-    const timer = setTimeout(() => {
-      refresh();
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [filter, refresh]);
-
   // Open rename modal via prop callback (replaces event-based approach)
   const openRenameModal = useCallback(
     (projectId: string, currentTitle: string) => {
       setRenameModal({ isOpen: true, projectId, currentTitle });
     },
-    [],
+    []
   );
 
   const handleSearchChange = useCallback((query: string) => {
@@ -197,53 +193,63 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const handleCreateNewDocument = useCallback(async () => {
     if (isCreating) return;
 
-    const title = prompt(
-      "What would you like to name your document?",
-      "My New Document",
-    );
+    const title = await prompt({
+      title: "Create new document",
+      description: "Give your document a clear, memorable name.",
+      label: "Document name",
+      placeholder: "My New Document",
+      defaultValue: "My New Document",
+      required: true,
+    });
     if (!title?.trim()) return;
 
     try {
       setIsCreating(true);
       const newProject = await createNewProject(user.id, title.trim());
 
-      // Add the new project to the beginning of the list
-      // Note: You might want to refresh instead to ensure proper ordering
-      refresh();
-
-      setNavigatingToEditor(newProject.id);
       router.push(`/editor/${newProject.id}`);
-    } catch (err) {
-      showErrorAlert("create document", err);
+    } catch {
+      showErrorAlert("create document");
     } finally {
       setIsCreating(false);
     }
-  }, [isCreating, user.id, router, refresh]);
+  }, [isCreating, user.id, router, prompt]);
 
   const handleOpenProject = useCallback(
     (projectId: string) => {
       setNavigatingToEditor(projectId);
+      // Hint router to prefetch editor route chunk
+      try {
+        router?.prefetch?.(`/editor/${projectId}`);
+      } catch {
+        // ignore
+      }
       router.push(`/editor/${projectId}`);
     },
-    [router],
+    [router]
   );
 
   const handleDeleteProject = useCallback(
     async (projectId: string, typPath: string, thumbnail_path?: string) => {
-      if (
-        !confirm("Delete this project forever? This action cannot be undone.")
-      )
-        return;
+      const ok = await confirm({
+        title: "Delete this project?",
+        description:
+          "This will permanently delete the project and its files. This action cannot be undone.",
+        confirmText: "Delete",
+        cancelText: "Cancel",
+        destructive: true,
+      });
+      if (!ok) return;
 
       try {
         await deleteProject(projectId, typPath, thumbnail_path);
         // Refresh the list to ensure consistency
         refresh();
-      } catch (err) {
-        showErrorAlert("delete", err);
+      } catch {
+        showErrorAlert("delete");
       }
     },
-    [refresh],
+    [refresh, confirm]
   );
 
   const handleRenameProject = useCallback(
@@ -254,24 +260,30 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         // Refresh the list to ensure consistency
         refresh();
       } catch (err) {
-        alert(
-          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`,
+        showToast.error(
+          `Failed to rename: ${err instanceof Error ? err.message : "Unknown error"}`
         );
         throw err;
       }
     },
-    [],
+    []
   );
 
   const handleSignOut = useCallback(async () => {
-    if (!confirm("Are you sure you want to sign out?")) return;
+    const ok = await confirm({
+      title: "Sign out?",
+      description: "You will need to sign in again to continue.",
+      confirmText: "Sign out",
+      cancelText: "Stay",
+    });
+    if (!ok) return;
 
     try {
       await signOut();
     } catch {
-      alert("Failed to sign out");
+      showToast.error("Failed to sign out");
     }
-  }, [signOut]);
+  }, [signOut, confirm]);
 
   const handleCreateFromTemplate = useCallback(
     async (template: Template) => {
@@ -282,34 +294,38 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         if (template.category === "resume") {
           const alreadyHas = await userHasResume(user.id);
           if (alreadyHas) {
-            alert(
-              "You already have a resume. Please delete it before creating a new one.",
+            showToast.warning(
+              "You already have a resume. Please delete it before creating a new one."
             );
             return;
           }
         }
 
-        const title = prompt("Name your document", template.title + " Copy");
+        const title = await prompt({
+          title: "Name your document",
+          label: "Document name",
+          placeholder: template.title + " Copy",
+          defaultValue: template.title + " Copy",
+          required: true,
+        });
         if (!title?.trim()) return;
 
         const newProject = await createProjectFromTemplate(
           user.id,
           title.trim(),
           template,
-          template.category === "resume" ? "resume" : "document",
+          template.category === "resume" ? "resume" : "document"
         );
 
-        refresh();
-        setNavigatingToEditor(newProject.id);
         router.push(`/editor/${newProject.id}`);
       } catch (err) {
         console.error("Error creating project from template:", err);
-        alert("Something went wrong while creating your document.");
+        showToast.error("Something went wrong while creating your document.");
       } finally {
         setIsCreatingFromTemplate(false);
       }
     },
-    [isCreating, isCreatingFromTemplate, user.id, router],
+    [isCreating, isCreatingFromTemplate, user.id, router, prompt]
   );
 
   const EmptyState = useMemo(
@@ -334,7 +350,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         </CardContent>
       </Card>
     ),
-    [searchQuery, handleCreateNewDocument, isCreating],
+    [searchQuery, handleCreateNewDocument, isCreating]
   );
 
   const LoadMoreIndicator = () => (
@@ -406,44 +422,58 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
           {/* Recent Documents Section */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <h2 className="text-lg font-medium">
-                  {getFilterTitle()}
-                  {!isLoading && totalCount > 0 && (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      ({projects.length} of {totalCount})
-                    </span>
-                  )}
-                </h2>
+            {!preferencesLoaded || isLoading ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 w-1/2">
+                  <div className="h-6 w-40 bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="h-9 w-36 bg-muted rounded animate-pulse" />
+                  <div className="h-9 w-24 bg-muted rounded animate-pulse" />
+                  <div className="h-9 w-28 bg-muted rounded animate-pulse" />
+                </div>
               </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-lg font-medium">
+                    {getFilterTitle()}
+                    {!isLoading && totalCount > 0 && (
+                      <span className="text-sm text-muted-foreground ml-2">
+                        ({projects.length} of {totalCount})
+                      </span>
+                    )}
+                  </h2>
+                </div>
 
-              <div className="flex items-center gap-4">
-                <FilterDropdown
-                  filter={filter}
-                  onFilterChange={handleFilterChange}
-                  user={user}
-                  isCXO={isCXO}
-                />
-
-                <ViewToggle view={viewMode} onViewChange={handleViewChange} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={refresh}
-                  disabled={isLoading}
-                  className="flex items-center gap-2"
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                <div className="flex items-center gap-4">
+                  <FilterDropdown
+                    filter={filter}
+                    onFilterChange={handleFilterChange}
+                    user={user}
+                    isCXO={isCXO}
                   />
-                  <span className="hidden sm:inline">Refresh</span>
-                </Button>
+
+                  <ViewToggle view={viewMode} onViewChange={handleViewChange} />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={refresh}
+                    disabled={isLoading}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Refresh</span>
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Content Area */}
-            {isLoading ? (
+            {!preferencesLoaded || isLoading ? (
               viewMode === "grid" ? (
                 <GridSkeleton />
               ) : (

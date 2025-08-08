@@ -88,7 +88,7 @@ export function useInfiniteScroll({
               page,
               pageSize,
               filterToUse,
-              userIdToUse,
+              userIdToUse
             )
           : await fetchUserProjects(page, pageSize, filterToUse, userIdToUse);
 
@@ -103,7 +103,7 @@ export function useInfiniteScroll({
         setCurrentPage(page);
       } catch (err) {
         setError(
-          err instanceof Error ? err.message : "Failed to load projects",
+          err instanceof Error ? err.message : "Failed to load projects"
         );
         // Reset to empty state on error
         if (page === 0) {
@@ -117,7 +117,7 @@ export function useInfiniteScroll({
         loadingRef.current = false;
       }
     },
-    [pageSize],
+    [pageSize]
   );
 
   // Load more function
@@ -149,12 +149,12 @@ export function useInfiniteScroll({
         {
           threshold: 0.1,
           rootMargin: "100px",
-        },
+        }
       );
 
       if (node) observer.current.observe(node);
     },
-    [hasMore, loadMore],
+    [hasMore, loadMore]
   );
 
   // Initial load
@@ -164,32 +164,35 @@ export function useInfiniteScroll({
     }
   }, [initialLoad, loadProjects]);
 
-  // Handle search query changes
+  // Handle search query changes (only after initial load is allowed)
   useEffect(() => {
+    if (!initialLoad) return;
     // Reset pagination and reload when search query changes
     setCurrentPage(0);
     loadProjects(0, true, searchQuery);
-  }, [searchQuery, loadProjects]);
+  }, [searchQuery, loadProjects, initialLoad]);
 
   // Handle filter changes
   useEffect(() => {
+    if (!initialLoad) return;
     // Reset pagination and reload when filter changes
     setCurrentPage(0);
-    setProjects([]); // Clear existing projects when filter changes
-    setHasMore(true); // Reset hasMore when filter changes
-    setTotalCount(0); // Reset total count when filter changes
+    setProjects([]);
+    setHasMore(true);
+    setTotalCount(0);
     loadProjects(0, true);
-  }, [filter, loadProjects]);
+  }, [filter, loadProjects, initialLoad]);
 
-  // Handle userId changes (for user-specific preferences)
+  // Handle userId changes (for user-specific preferences) — only after initial load allowed
   useEffect(() => {
+    if (!initialLoad) return;
     // Reset pagination and reload when userId changes
     setCurrentPage(0);
-    setProjects([]); // Clear existing projects when user changes
-    setHasMore(true); // Reset hasMore when user changes
-    setTotalCount(0); // Reset total count when user changes
+    setProjects([]);
+    setHasMore(true);
+    setTotalCount(0);
     loadProjects(0, true);
-  }, [userId, loadProjects]);
+  }, [userId, loadProjects, initialLoad]);
 
   // Cleanup observer
   useEffect(() => {
