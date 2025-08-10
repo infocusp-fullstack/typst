@@ -32,6 +32,24 @@ export const showToast = {
       closeButton: true,
     });
   },
+
+  loading: (
+    message: string,
+    options?: {
+      position?: "top-right" | "bottom-center" | "top-center" | "bottom-right";
+    },
+  ) => {
+    const id = toast.loading(message, {
+      position: options?.position ?? "top-right",
+      closeButton: false,
+    });
+    return id;
+  },
+
+  // Dismiss a toast by id (or all if no id provided)
+  dismiss: (id?: string | number) => {
+    toast.dismiss(id as never);
+  },
 };
 
 export default showToast;

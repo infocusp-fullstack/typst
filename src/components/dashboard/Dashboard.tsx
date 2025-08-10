@@ -205,12 +205,18 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     });
     if (!title?.trim()) return;
 
+    let loadingId: string | number | undefined;
     try {
       setIsCreating(true);
+      loadingId = showToast.loading("Creating document...", {
+        position: "top-right",
+      });
       const newProject = await createNewProject(user.id, title.trim());
-
+      showToast.dismiss(loadingId);
+      showToast.success("Document created");
       router.push(`/editor/${newProject.id}`);
     } catch {
+      if (loadingId) showToast.dismiss(loadingId);
       showErrorAlert("create document");
     } finally {
       setIsCreating(false);
@@ -292,6 +298,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     async (template: Template) => {
       if (isCreating || isCreatingFromTemplate) return;
 
+      let loadingId: string | number | undefined;
       try {
         setIsCreatingFromTemplate(true);
         if (template.category === "resume") {
@@ -313,6 +320,10 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         });
         if (!title?.trim()) return;
 
+        loadingId = showToast.loading("Creating from template...", {
+          position: "top-right",
+        });
+
         const newProject = await createProjectFromTemplate(
           user.id,
           title.trim(),
@@ -320,8 +331,11 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           template.category === "resume" ? "resume" : "document",
         );
 
+        showToast.dismiss(loadingId);
+        showToast.success("Document created");
         router.push(`/editor/${newProject.id}`);
       } catch (err) {
+        if (loadingId) showToast.dismiss(loadingId);
         console.error("Error creating project from template:", err);
         showToast.error("Something went wrong while creating your document.");
       } finally {
@@ -374,7 +388,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       case "shared":
         return "Shared with me";
       case "all":
-        return "All documents";
+        return "All resumes";
       default:
         return "Recent documents";
     }

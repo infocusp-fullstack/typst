@@ -15,7 +15,11 @@ import { EditorPane } from "@/components/editor/EditorPane";
 import { PreviewPane } from "@/components/editor/PreviewPane";
 import { User } from "@supabase/supabase-js";
 import { Loading } from "@/components/ui/loading";
-import { canEditProject, isCXOByEmail } from "@/lib/sharingService";
+import {
+  canEditProject,
+  canViewProject,
+  isCXOByEmail,
+} from "@/lib/sharingService";
 import { PDFContent } from "@/types";
 import { useDialog } from "@/hooks/useDialog";
 import { showToast } from "@/lib/toast";
@@ -84,16 +88,29 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         const project = await fetchUserProjectById(projectId);
         if (!project) throw new Error("Project not found");
 
-        const [editPermission, iscxo, content] = await Promise.all([
-          canEditProject(projectId, user.id, project.user_id),
-          isCXOByEmail(user.email),
-          loadProjectFile(project.typ_path),
-        ]);
+        const [editPermission, viewPermission, iscxo, content] =
+          await Promise.all([
+            canEditProject(projectId, user.id, project.user_id),
+            canViewProject(projectId, user.id, project.user_id),
+            isCXOByEmail(user.email),
+            loadProjectFile(project.typ_path),
+          ]);
 
         // Owner and permissions
         const owner = project.user_id === user.id;
         setIsOwner(owner);
-        setCanEdit(owner || iscxo || editPermission);
+
+        // If user is CXO, only grant elevated access for resumes
+        const cxoHasAccess = iscxo && project.project_type === "resume";
+
+        // Hard block: if not owner, not explicitly shared, and CXO lacks resume context, redirect
+        if (!owner && !viewPermission && !cxoHasAccess) {
+          showToast.error("You don't have access to this document.");
+          router.push("/dashboard");
+          return;
+        }
+
+        setCanEdit(owner || cxoHasAccess || editPermission);
 
         // Content and state
         contentRef.current = content;

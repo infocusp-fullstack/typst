@@ -57,7 +57,18 @@ export function ShareModal({
   // Load existing shares when modal opens
   useEffect(() => {
     if (isOpen) {
+      // Fresh state on every open
+      setSearchQuery("");
+      setSearchResults([]);
+      setSelectedUser(null);
+      setPermission("read");
       loadSharedUsers();
+    } else {
+      // Ensure state is cleared on close as well
+      setSearchQuery("");
+      setSearchResults([]);
+      setSelectedUser(null);
+      setPermission("read");
     }
   }, [isOpen, projectId]);
 
@@ -114,10 +125,9 @@ export function ShareModal({
         `Shared with ${selectedUser.name || selectedUser.email}`,
       );
       onClose();
-      // setSelectedUser(null);
-      // setSearchQuery("");
-      // setPermission("read");
-      // loadSharedUsers();
+      setSelectedUser(null);
+      setSearchQuery("");
+      setPermission("read");
     } catch (error) {
       console.error("Failed to share:", error);
       showToast.error(
@@ -191,6 +201,20 @@ export function ShareModal({
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
               />
+              {(selectedUser || searchQuery) && (
+                <button
+                  type="button"
+                  aria-label="Clear selection"
+                  onClick={() => {
+                    setSelectedUser(null);
+                    setSearchQuery("");
+                    setSearchResults([]);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
 
             {/* Search Results */}

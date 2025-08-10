@@ -270,19 +270,22 @@ export async function canEditProject(
 export async function canViewProject(
   projectId: string,
   userId: string,
+  projectOwnerId?: string,
 ): Promise<boolean> {
   try {
     const supabase = getAdminClient();
 
-    // Check if user owns the project
-    const { data: project } = await supabase
-      .from("projects")
-      .select("user_id")
-      .eq("id", projectId)
-      .single();
+    // Short-circuit if ownerId already known
+    if (projectOwnerId && projectOwnerId === userId) return true;
 
-    if (project?.user_id === userId) {
-      return true;
+    // If ownerId not provided, fetch it once
+    if (!projectOwnerId) {
+      const { data: project } = await supabase
+        .from("projects")
+        .select("user_id")
+        .eq("id", projectId)
+        .single();
+      if (project?.user_id === userId) return true;
     }
 
     // Check if user has any permission through sharing
