@@ -86,9 +86,16 @@ const ProjectCard = React.memo(
             )}
 
             <div className="absolute bottom-0 left-0 right-0 p-3 bg-card border-t border-border">
-              <h3 className="text-sm font-medium truncate hover:text-primary transition-colors">
-                {project.title}
-              </h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-medium truncate hover:text-primary transition-colors">
+                  {project.title}
+                </h3>
+                {project.project_type === "resume" && (
+                  <span className="min-w-0 flex-shrink-0 px-1.5 py-0.5 text-[0.625em] font-medium rounded bg-primary/10 text-primary border border-primary/20">
+                    Resume
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-primary rounded flex items-center justify-center flex-shrink-0 mt-0.5">
                   <FileText className="h-3 w-3 text-primary-foreground" />
@@ -165,7 +172,7 @@ const ProjectCard = React.memo(
         </div>
       </div>
     );
-  },
+  }
 );
 
 ProjectCard.displayName = "ProjectCard";

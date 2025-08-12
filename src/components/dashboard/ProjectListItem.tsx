@@ -97,7 +97,14 @@ const ProjectListItem = React.memo(
         </div>
 
         <div className="flex-1 min-w-0">
-          <h3 className="font-medium truncate text-sm mb-1">{project.title}</h3>
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-medium truncate text-sm">{project.title}</h3>
+            {project.project_type === "resume" && (
+              <span className="min-w-0 flex-shrink-0 px-1.5 py-0.5 text-[0.625em] font-medium rounded bg-primary/10 text-primary border border-primary/20">
+                Resume
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>Last Modified {formatDate(project.updated_at)}</span>
             <div className="flex items-center gap-1">
@@ -161,7 +168,7 @@ const ProjectListItem = React.memo(
         </div>
       </div>
     );
-  },
+  }
 );
 
 ProjectListItem.displayName = "ProjectListItem";
