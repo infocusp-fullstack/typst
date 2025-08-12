@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Save, Download, Sun, Moon, Share2 } from "lucide-react";
 import { ShareModal } from "./ShareModal";
 import { User } from "@supabase/supabase-js";
+import { TruncateWithTooltip } from "@/components/ui/TruncateWithTooltip";
+import Link from "next/link";
 
 export const Toolbar = memo(function Toolbar({
   projectTitle,
@@ -48,16 +50,22 @@ export const Toolbar = memo(function Toolbar({
         </Button>
 
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-xs">T</span>
-          </div>
-          <span className="font-semibold">Typst Editor</span>
+          <Link href="/" prefetch className="flex items-center gap-2">
+            <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
+              <span className="text-primary-foreground font-bold text-xs">T</span>
+            </div>
+            <span className="font-semibold">Typst Editor</span>
+          </Link>
           {projectTitle && (
             <>
               <span className="text-muted-foreground">•</span>
-              <span className="text-sm truncate max-w-xs overflow-hidden whitespace-nowrap">
-                {projectTitle}
-              </span>
+              <TruncateWithTooltip<HTMLSpanElement> tooltip={projectTitle}>
+                {({ ref }) => (
+                  <span ref={ref} className="text-sm truncate max-w-xs overflow-hidden whitespace-nowrap">
+                    {projectTitle}
+                  </span>
+                )}
+              </TruncateWithTooltip>
             </>
           )}
         </div>

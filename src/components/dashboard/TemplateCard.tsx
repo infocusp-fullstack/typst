@@ -1,6 +1,7 @@
 import React from "react";
 import { FileText } from "lucide-react";
 import { Template } from "@/types";
+import { TruncateWithTooltip } from "@/components/ui/TruncateWithTooltip";
 
 interface TemplateCardProps {
   template: Template;
@@ -38,18 +39,26 @@ const TemplateCard = React.memo(
             )}
 
             <div className="absolute bottom-0 left-0 right-0 p-3 bg-card border-t border-border">
-              <h3 className="text-sm font-medium truncate hover:text-primary transition-colors">
-                {template.title}
-              </h3>
+              <TruncateWithTooltip<HTMLHeadingElement> tooltip={template.title}>
+                {({ ref }) => (
+                  <h3 ref={ref} className="text-sm font-medium truncate hover:text-primary transition-colors">
+                    {template.title}
+                  </h3>
+                )}
+              </TruncateWithTooltip>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-primary rounded flex items-center justify-center flex-shrink-0 mt-0.5">
                   <FileText className="h-3 w-3 text-primary-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mt-1">
-                    <span className="text-xs text-muted-foreground truncate">
-                      {template.category ?? "Other"}
-                    </span>
+                    <TruncateWithTooltip<HTMLSpanElement> tooltip={template.category ?? "Other"}>
+                      {({ ref }) => (
+                        <span ref={ref} className="text-xs text-muted-foreground truncate">
+                          {template.category ?? "Other"}
+                        </span>
+                      )}
+                    </TruncateWithTooltip>
                   </div>
                 </div>
               </div>

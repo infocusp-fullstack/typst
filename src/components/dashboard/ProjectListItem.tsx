@@ -18,6 +18,7 @@ import { ProjectWithShares } from "@/types";
 import React, { useState, useEffect } from "react";
 import { getThumbnailUrl } from "@/lib/thumbnailService";
 import { User } from "@supabase/supabase-js";
+import { TruncateWithTooltip } from "@/components/ui/TruncateWithTooltip";
 
 interface ProjectListItemProps {
   project: ProjectWithShares;
@@ -98,7 +99,13 @@ const ProjectListItem = React.memo(
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-medium truncate text-sm">{project.title}</h3>
+            <TruncateWithTooltip<HTMLHeadingElement> tooltip={project.title}>
+              {({ ref }) => (
+                <h3 ref={ref} className="font-medium truncate text-sm">
+                  {project.title}
+                </h3>
+              )}
+            </TruncateWithTooltip>
             {project.project_type === "resume" && (
               <span className="min-w-0 flex-shrink-0 px-1.5 py-0.5 text-[0.625em] font-medium rounded bg-primary/10 text-primary border border-primary/20">
                 Resume
@@ -168,7 +175,7 @@ const ProjectListItem = React.memo(
         </div>
       </div>
     );
-  }
+  },
 );
 
 ProjectListItem.displayName = "ProjectListItem";

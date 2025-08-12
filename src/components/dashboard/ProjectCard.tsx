@@ -14,31 +14,24 @@ import {
   Edit,
   Share2,
 } from "lucide-react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { ProjectWithShares } from "@/types";
 import React, { useState, useEffect } from "react";
 import { getThumbnailUrl } from "@/lib/thumbnailService";
 import { User } from "@supabase/supabase-js";
+import { TruncateWithTooltip } from "@/components/ui/TruncateWithTooltip";
 
 interface ProjectCardProps {
   project: ProjectWithShares;
-  onOpen: () => void;
   onDelete: () => void;
-  isNavigating?: boolean;
   currentUser: User;
   isCXO: boolean;
   onRename: () => void;
 }
 
 const ProjectCard = React.memo(
-  ({
-    project,
-    onOpen,
-    onDelete,
-    isNavigating = false,
-    currentUser,
-    isCXO,
-    onRename,
-  }: ProjectCardProps) => {
+  ({ project, onDelete, currentUser, isCXO, onRename }: ProjectCardProps) => {
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
     const [canDelete, setCanDelete] = useState(false);
     const [canRename, setCanRename] = useState(false);
@@ -67,7 +60,11 @@ const ProjectCard = React.memo(
     }, [project.id, currentUser.id, isOwner]);
 
     return (
-      <div className="group relative cursor-pointer" onClick={onOpen}>
+      <Link
+        href={`/editor/${project.id}`}
+        prefetch
+        className="group relative cursor-pointer block"
+      >
         <div className="relative w-full aspect-[210/297] bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 mb-3 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-background">
             {thumbnailUrl ? (
@@ -86,14 +83,26 @@ const ProjectCard = React.memo(
             )}
 
             <div className="absolute bottom-0 left-0 right-0 p-3 bg-card border-t border-border">
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-medium truncate hover:text-primary transition-colors">
-                  {project.title}
-                </h3>
+              <div className="flex items-center gap-2 min-w-0">
+                <TruncateWithTooltip<HTMLHeadingElement>
+                  tooltip={project.title}
+                >
+                  {({ ref }) => (
+                    <h3
+                      ref={ref}
+                      className="text-sm font-medium truncate hover:text-primary transition-colors"
+                    >
+                      {project.title}
+                    </h3>
+                  )}
+                </TruncateWithTooltip>
                 {project.project_type === "resume" && (
-                  <span className="min-w-0 flex-shrink-0 px-1.5 py-0.5 text-[0.625em] font-medium rounded bg-primary/10 text-primary border border-primary/20">
+                  <Badge
+                    variant="outline"
+                    className="px-1.5 py-0 text-[0.625rem] flex-shrink-0"
+                  >
                     Resume
-                  </span>
+                  </Badge>
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -114,25 +123,28 @@ const ProjectCard = React.memo(
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <div className="hover:bg-muted w-6 h-6 flex items-center justify-center rounded cursor-pointer">
+                        <div
+                          className="hover:bg-muted w-6 h-6 flex items-center justify-center rounded cursor-pointer"
+                          onClick={(e) => e.preventDefault()}
+                        >
                           <MoreVertical className="h-5 w-5 text-muted-foreground" />
                         </div>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOpen();
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <Edit3 className="mr-2 h-4 w-4" />
-                          Open
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/editor/${project.id}`}
+                            prefetch
+                            className="cursor-pointer"
+                          >
+                            <Edit3 className="mr-2 h-4 w-4" />
+                            Open
+                          </Link>
                         </DropdownMenuItem>
                         {canRename && (
                           <DropdownMenuItem
                             onClick={(e) => {
-                              e.stopPropagation();
+                              e.preventDefault();
                               onRename();
                             }}
                             className="cursor-pointer"
@@ -146,7 +158,7 @@ const ProjectCard = React.memo(
                             {canRename && <DropdownMenuSeparator />}
                             <DropdownMenuItem
                               onClick={(e) => {
-                                e.stopPropagation();
+                                e.preventDefault();
                                 onDelete();
                               }}
                               className="text-destructive cursor-pointer"
@@ -163,14 +175,8 @@ const ProjectCard = React.memo(
               </div>
             </div>
           </div>
-
-          {isNavigating && (
-            <div className="absolute inset-0 bg-background/50 flex items-center justify-center">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
-          )}
         </div>
-      </div>
+      </Link>
     );
   }
 );

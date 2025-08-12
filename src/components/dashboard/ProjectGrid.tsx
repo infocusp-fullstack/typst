@@ -5,13 +5,12 @@ import { User } from "@supabase/supabase-js";
 
 interface ProjectGridProps {
   projects: Project[];
-  onOpenProject: (projectId: string) => void;
+  // onOpenProject: (projectId: string) => void;
   onDeleteProject: (
     projectId: string,
     typPath: string,
-    thumbnail_path?: string,
+    thumbnail_path?: string
   ) => void;
-  navigatingToEditor: string | null;
   currentUser: User;
   isCXO: boolean;
   onRenameRequest: (projectId: string, currentTitle: string) => void;
@@ -20,9 +19,8 @@ interface ProjectGridProps {
 const ProjectGrid = React.memo(
   ({
     projects,
-    onOpenProject,
+    // onOpenProject,
     onDeleteProject,
-    navigatingToEditor,
     currentUser,
     isCXO,
     onRenameRequest,
@@ -33,15 +31,14 @@ const ProjectGrid = React.memo(
           <ProjectCard
             key={project.id}
             project={project}
-            onOpen={() => onOpenProject(project.id)}
+            // onOpen={() => onOpenProject(project.id)}
             onDelete={() =>
               onDeleteProject(
                 project.id,
                 project.typ_path,
-                project.thumbnail_path,
+                project.thumbnail_path
               )
             }
-            isNavigating={navigatingToEditor === project.id}
             currentUser={currentUser}
             isCXO={isCXO}
             onRename={() => onRenameRequest(project.id, project.title)}
@@ -49,7 +46,7 @@ const ProjectGrid = React.memo(
         ))}
       </div>
     );
-  },
+  }
 );
 
 ProjectGrid.displayName = "ProjectGrid";

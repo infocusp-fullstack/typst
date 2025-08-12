@@ -77,9 +77,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const [isCreatingFromTemplate, setIsCreatingFromTemplate] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const [navigatingToEditor, setNavigatingToEditor] = useState<string | null>(
-    null,
-  );
+
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<FilterType>("owned");
   const [isCXO, setIsCXO] = useState(false);
@@ -96,6 +94,17 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
 
   const { theme, toggleTheme } = useTheme();
   const router = useRouter();
+  // const loadingToastRef = useRef<string | number | null>(null);
+
+  // // Cleanup loading toast when component unmounts (navigation)
+  // useEffect(() => {
+  //   return () => {
+  //     if (loadingToastRef.current) {
+  //       showToast.dismiss(loadingToastRef.current);
+  //       loadingToastRef.current = null;
+  //     }
+  //   };
+  // }, []);
 
   // Create user-specific localStorage keys
   const getViewModeKey = () => `dashboard-view-mode-${user.id}`;
@@ -172,7 +181,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     (projectId: string, currentTitle: string) => {
       setRenameModal({ isOpen: true, projectId, currentTitle });
     },
-    [],
+    []
   );
 
   const handleSearchChange = useCallback((query: string) => {
@@ -223,19 +232,31 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     }
   }, [isCreating, user.id, router, prompt]);
 
-  const handleOpenProject = useCallback(
-    (projectId: string) => {
-      setNavigatingToEditor(projectId);
-      // Hint router to prefetch editor route chunk
-      try {
-        router?.prefetch?.(`/editor/${projectId}`);
-      } catch {
-        // ignore
-      }
-      router.push(`/editor/${projectId}`);
-    },
-    [router],
-  );
+  // const handleOpenProject = useCallback(
+  //   (projectId: string) => {
+  //     if (loadingToastRef.current) {
+  //       showToast.dismiss(loadingToastRef.current);
+  //       loadingToastRef.current = null;
+  //     }
+
+  //     // Show loading toast
+  //     const loadingId = showToast.loading("Opening document...", {
+  //       position: "top-center",
+  //     });
+  //     loadingToastRef.current = loadingId;
+
+  //     // Hint router to prefetch editor route chunk
+  //     try {
+  //       router?.prefetch?.(`/editor/${projectId}`);
+  //     } catch {
+  //       // ignore
+  //     }
+
+  //     // Navigate to editor
+  //     router.push(`/editor/${projectId}`);
+  //   },
+  //   [router]
+  // );
 
   const handleDeleteProject = useCallback(
     async (projectId: string, typPath: string, thumbnail_path?: string) => {
@@ -259,7 +280,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         showErrorAlert("delete");
       }
     },
-    [refresh, confirm],
+    [refresh, confirm]
   );
 
   const handleRenameProject = useCallback(
@@ -275,7 +296,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         throw err;
       }
     },
-    [],
+    []
   );
 
   const handleSignOut = useCallback(async () => {
@@ -305,7 +326,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           const alreadyHas = await userHasResume(user.id);
           if (alreadyHas) {
             showToast.warning(
-              "You already have a resume. Please delete it before creating a new one.",
+              "You already have a resume. Please delete it before creating a new one."
             );
             return;
           }
@@ -328,7 +349,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           user.id,
           title.trim(),
           template,
-          template.category === "resume" ? "resume" : "document",
+          template.category === "resume" ? "resume" : "document"
         );
 
         showToast.dismiss(loadingId);
@@ -342,7 +363,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         setIsCreatingFromTemplate(false);
       }
     },
-    [isCreating, isCreatingFromTemplate, user.id, router, prompt],
+    [isCreating, isCreatingFromTemplate, user.id, router, prompt]
   );
 
   const EmptyState = useMemo(
@@ -367,7 +388,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         </CardContent>
       </Card>
     ),
-    [searchQuery, handleCreateNewDocument, isCreating],
+    [searchQuery, handleCreateNewDocument, isCreating]
   );
 
   const LoadMoreIndicator = () => (
@@ -503,9 +524,8 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                 {viewMode === "grid" ? (
                   <ProjectGrid
                     projects={projects}
-                    onOpenProject={handleOpenProject}
+                    // onOpenProject={handleOpenProject}
                     onDeleteProject={handleDeleteProject}
-                    navigatingToEditor={navigatingToEditor}
                     currentUser={user}
                     isCXO={isCXO}
                     onRenameRequest={openRenameModal}
@@ -513,9 +533,8 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                 ) : (
                   <ProjectList
                     projects={projects}
-                    onOpenProject={handleOpenProject}
+                    // onOpenProject={handleOpenProject}
                     onDeleteProject={handleDeleteProject}
-                    navigatingToEditor={navigatingToEditor}
                     currentUser={user}
                     isCXO={isCXO}
                     onRenameRequest={openRenameModal}
