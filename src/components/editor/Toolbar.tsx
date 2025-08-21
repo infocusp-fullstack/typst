@@ -52,16 +52,21 @@ export const Toolbar = memo(function Toolbar({
         <div className="flex items-center gap-2">
           <Link href="/" prefetch className="flex items-center gap-2">
             <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xs">T</span>
+              <span className="text-primary-foreground font-bold text-xs">
+                R
+              </span>
             </div>
-            <span className="font-semibold">Typst Editor</span>
+            <span className="font-semibold">Resumes</span>
           </Link>
           {projectTitle && (
             <>
               <span className="text-muted-foreground">•</span>
               <TruncateWithTooltip<HTMLSpanElement> tooltip={projectTitle}>
                 {({ ref }) => (
-                  <span ref={ref} className="text-sm truncate max-w-xs overflow-hidden whitespace-nowrap">
+                  <span
+                    ref={ref}
+                    className="text-sm truncate max-w-xs overflow-hidden whitespace-nowrap"
+                  >
                     {projectTitle}
                   </span>
                 )}

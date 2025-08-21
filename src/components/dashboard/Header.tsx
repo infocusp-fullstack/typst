@@ -49,9 +49,9 @@ export function Header({
       <div className="flex h-14 items-center gap-4 px-4">
         <Link href="/" prefetch className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">T</span>
+            <span className="text-primary-foreground font-bold text-sm">R</span>
           </div>
-          <span className="font-semibold text-lg">Typst Resume</span>
+          <span className="font-semibold text-lg">Resumes</span>
         </Link>
 
         <SearchBar value={searchQuery} onChange={onSearchChange} />

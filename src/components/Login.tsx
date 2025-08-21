@@ -154,10 +154,10 @@ export default function Login() {
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm">
-                T
+                R
               </span>
             </div>
-            <span className="font-semibold text-lg">Typst Resume</span>
+            <span className="font-semibold text-lg">Infocusp Resumes</span>
           </div>
 
           <div className="flex-1" />
@@ -180,11 +180,11 @@ export default function Login() {
           {/* Logo and Title */}
           <div className="text-center space-y-4">
             <div className="mx-auto w-20 h-20 bg-gradient-to-br bg-primary rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-3xl">T</span>
+              <span className="text-white font-bold text-3xl">R</span>
             </div>
             <div className="space-y-2">
               <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-indigo-900 dark:from-white dark:via-blue-100 dark:to-indigo-100 bg-clip-text text-transparent">
-                Typst Resume
+                Infocusp Resume
               </h1>
             </div>
           </div>

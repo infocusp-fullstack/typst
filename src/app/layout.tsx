@@ -5,8 +5,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { DialogProvider } from "@/hooks/useDialog";
 
 export const metadata = {
-  title: "Typst Resume",
-  description: "A modern Typst document editor with real-time preview",
+  title: "Infocusp Resumes",
+  description: "A modern document editor with real-time preview",
 };
 
 export default function RootLayout({
