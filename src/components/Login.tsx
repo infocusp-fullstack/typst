@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { Loader2, Moon, Sun } from "lucide-react";
 import showToast from "@/lib/toast";
+import Logo from "@/components/Logo";
 
 // type MessageType = "idle" | "success" | "error" | "info";
 // type LoadingState = "idle" | "busy" | "success" | "error";
@@ -152,12 +153,8 @@ export default function Login() {
       <header className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="flex h-14 items-center gap-4 px-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">
-                R
-              </span>
-            </div>
-            <span className="font-semibold text-lg">Infocusp Resumes</span>
+            <Logo size="sm" />
+            <span className="font-semibold text-lg">Infocusp Resume</span>
           </div>
 
           <div className="flex-1" />
@@ -179,8 +176,8 @@ export default function Login() {
         <div className="w-full max-w-md space-y-8">
           {/* Logo and Title */}
           <div className="text-center space-y-4">
-            <div className="mx-auto w-20 h-20 bg-gradient-to-br bg-primary rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-3xl">R</span>
+            <div className="mx-auto w-20 h-20 bg-gradient-to-br rounded-2xl flex items-center justify-center shadow-lg">
+              <Logo size="lg" className="w-16 h-16" />
             </div>
             <div className="space-y-2">
               <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-indigo-900 dark:from-white dark:via-blue-100 dark:to-indigo-100 bg-clip-text text-transparent">

@@ -315,6 +315,20 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     }
   }, [signOut, confirm]);
 
+  const getUserName = () => {
+    return (
+      user.user_metadata?.full_name ||
+      (() => {
+        const namePart = user.email?.split("@")[0];
+        if (namePart) {
+          return namePart.charAt(0).toUpperCase() + namePart.slice(1);
+        }
+        return undefined;
+      })() ||
+      "User"
+    );
+  };
+
   const handleCreateFromTemplate = useCallback(
     async (template: Template) => {
       if (isCreating || isCreatingFromTemplate) return;
@@ -335,8 +349,14 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         const title = await prompt({
           title: "Name your document",
           label: "Document name",
-          placeholder: template.title + " Copy",
-          defaultValue: template.title + " Copy",
+          placeholder:
+            template.category === "resume"
+              ? getUserName() + " Resume"
+              : template.title + " Copy",
+          defaultValue:
+            template.category === "resume"
+              ? getUserName() + " Resume"
+              : template.title + " Copy",
           required: true,
         });
         if (!title?.trim()) return;

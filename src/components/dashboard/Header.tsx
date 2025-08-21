@@ -12,6 +12,7 @@ import { LogOut, Moon, Sun } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 import { SearchBar } from "./SearchBar";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 
 interface HeaderProps {
   user: User;
@@ -48,10 +49,8 @@ export function Header({
     <header className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
       <div className="flex h-14 items-center gap-4 px-4">
         <Link href="/" prefetch className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">R</span>
-          </div>
-          <span className="font-semibold text-lg">Resumes</span>
+          <Logo size="sm" />
+          <span className="font-semibold text-lg">Infocusp Resume</span>
         </Link>
 
         <SearchBar value={searchQuery} onChange={onSearchChange} />

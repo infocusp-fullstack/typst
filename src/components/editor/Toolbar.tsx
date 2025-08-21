@@ -7,6 +7,7 @@ import { ShareModal } from "./ShareModal";
 import { User } from "@supabase/supabase-js";
 import { TruncateWithTooltip } from "@/components/ui/TruncateWithTooltip";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 
 export const Toolbar = memo(function Toolbar({
   projectTitle,
@@ -51,12 +52,8 @@ export const Toolbar = memo(function Toolbar({
 
         <div className="flex items-center gap-2">
           <Link href="/" prefetch className="flex items-center gap-2">
-            <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xs">
-                R
-              </span>
-            </div>
-            <span className="font-semibold">Resumes</span>
+            <Logo size="sm" />
+            <span className="font-semibold">Infocusp Resume</span>
           </Link>
           {projectTitle && (
             <>

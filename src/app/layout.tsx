@@ -7,6 +7,13 @@ import { DialogProvider } from "@/hooks/useDialog";
 export const metadata = {
   title: "Infocusp Resumes",
   description: "A modern document editor with real-time preview",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icon.ico", sizes: "16x16", type: "image/x-icon" },
+    ],
+    apple: [{ url: "/app-icon.ico", sizes: "180x180", type: "image/x-icon" }],
+  },
 };
 
 export default function RootLayout({
