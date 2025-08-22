@@ -8,8 +8,21 @@ import type { Extension } from "@codemirror/state";
 // Safe tokenizer for Typst
 const typstTokenizer = {
   startState: () => ({}),
-  token: (stream: any) => {
+  token: (stream: any, state: any) => {
     if (stream.eatSpace()) return null;
+
+    if (stream.match("/*")) {
+      state.inComment = true;
+      return "comment";
+    }
+    if (state.inComment) {
+      if (stream.match("*/")) {
+        state.inComment = false;
+      } else {
+        stream.next();
+      }
+      return "comment";
+    }
 
     // Comments
     if (stream.match("//")) {
@@ -121,24 +134,14 @@ const typstTokenizer = {
       "#else",
       "#for",
       "#while",
-      "let",
-      "show",
-      "set",
-      "import",
-      "include",
-      "if",
-      "else",
-      "for",
-      "while",
-      "in",
-      "return",
-      "break",
-      "continue",
-      "true",
-      "false",
-      "none",
-      "auto",
+      "#true",
+      "#false",
+      "#edu",
+      "#work",
+      "#project",
+      "#extracurriculars",
     ];
+
     for (const keyword of keywords) {
       if (stream.match(keyword)) {
         return "keyword";
@@ -159,10 +162,10 @@ const typstTokenizer = {
 // --- Highlight Styles ---
 const typstHighlightStyle = HighlightStyle.define([
   { tag: tags.heading, color: "#e11d48", fontWeight: "bold" },
-  { tag: tags.strong, color: "#facc15", fontWeight: "bold" },
-  { tag: tags.emphasis, color: "#fcd34d", fontStyle: "italic" },
+  { tag: tags.strong, color: "#19181f", fontWeight: "bold" },
+  { tag: tags.emphasis, color: "#19181f", fontWeight: "bold" },
   { tag: tags.strikethrough, textDecoration: "line-through", color: "#94a3b8" },
-  { tag: tags.keyword, color: "#7c3aed", fontWeight: "bold" },
+  { tag: tags.keyword, color: "#4b69c6", fontWeight: "bold" },
   { tag: tags.atom, color: "#059669" },
   { tag: tags.bool, color: "#dc2626" },
   { tag: tags.url, color: "#38bdf8", textDecoration: "underline" },

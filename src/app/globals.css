@@ -149,7 +149,8 @@
 }
 
 .cm-content {
-  @apply text-foreground;
+  @apply text-foreground font-mono font-medium;
+  font-size: 1em
 }
 
 .cm-gutters {
