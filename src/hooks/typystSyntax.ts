@@ -38,7 +38,7 @@ const typstTokenizer = {
     // Bold: **text**
     if (stream.peek() === "*" && stream.match("**", false)) {
       stream.next();
-      stream.next(); // consume **
+      stream.next();
       while (!stream.eol()) {
         if (stream.match("**", true)) return "strong";
         stream.next();
@@ -48,7 +48,7 @@ const typstTokenizer = {
 
     // Emphasis: *text*
     if (stream.peek() === "*") {
-      stream.next(); // consume *
+      stream.next();
       while (!stream.eol()) {
         if (stream.peek() === "*") {
           stream.next();
@@ -159,35 +159,50 @@ const typstTokenizer = {
   },
 };
 
-// --- Highlight Styles ---
+// --- Theme-Aware Highlight Styles ---
 const typstHighlightStyle = HighlightStyle.define([
-  { tag: tags.heading, color: "#e11d48", fontWeight: "bold" },
-  { tag: tags.strong, color: "#19181f", fontWeight: "bold" },
-  { tag: tags.emphasis, color: "#19181f", fontWeight: "bold" },
-  { tag: tags.strikethrough, textDecoration: "line-through", color: "#94a3b8" },
-  { tag: tags.keyword, color: "#4b69c6", fontWeight: "bold" },
-  { tag: tags.atom, color: "#059669" },
-  { tag: tags.bool, color: "#dc2626" },
-  { tag: tags.url, color: "#38bdf8", textDecoration: "underline" },
-  { tag: tags.labelName, color: "#7c2d12" },
-  { tag: tags.inserted, color: "#059669" },
-  { tag: tags.deleted, color: "#dc2626" },
-  { tag: tags.literal, color: "#0891b2", fontStyle: "italic" },
-  { tag: tags.string, color: "#22c55e" },
-  { tag: tags.number, color: "#f87171" },
+  { tag: tags.heading, color: "var(--color-heading)", fontWeight: "bold" },
+  { tag: tags.strong, color: "var(--color-foreground)", fontWeight: "bold" },
+  { tag: tags.emphasis, color: "var(--color-foreground)", fontWeight: "bold" },
+  {
+    tag: tags.strikethrough,
+    textDecoration: "line-through",
+    color: "var(--color-muted-foreground)",
+  },
+  { tag: tags.keyword, color: "var(--color-primary)", fontWeight: "bold" },
+  { tag: tags.atom, color: "var(--color-success)" },
+  { tag: tags.bool, color: "var(--color-danger)" },
+  { tag: tags.url, color: "var(--color-info)", textDecoration: "underline" },
+  { tag: tags.labelName, color: "var(--color-warning)" },
+  { tag: tags.inserted, color: "var(--color-success)" },
+  { tag: tags.deleted, color: "var(--color-danger)" },
+  { tag: tags.literal, color: "var(--color-accent)", fontStyle: "italic" },
+  { tag: tags.string, color: "var(--color-success)" },
+  { tag: tags.number, color: "var(--color-danger)" },
   {
     tag: [tags.regexp, tags.escape, tags.special(tags.string)],
-    color: "#e11d48",
+    color: "var(--color-primary)",
   },
-  { tag: tags.definition(tags.variableName), color: "#0ea5e9" },
-  { tag: tags.local(tags.variableName), color: "#14b8a6" },
-  { tag: [tags.typeName, tags.namespace], color: "#7c3aed" },
-  { tag: tags.className, color: "#c084fc" },
-  { tag: [tags.special(tags.variableName), tags.macroName], color: "#ec4899" },
-  { tag: tags.definition(tags.propertyName), color: "#22d3ee" },
-  { tag: tags.comment, color: "#6b7280", fontStyle: "italic" },
-  { tag: tags.meta, color: "#6b7280" },
-  { tag: tags.invalid, color: "#ef4444", textDecoration: "underline" },
+  { tag: tags.definition(tags.variableName), color: "var(--color-info)" },
+  { tag: tags.local(tags.variableName), color: "var(--color-accent)" },
+  { tag: [tags.typeName, tags.namespace], color: "var(--color-purple)" },
+  { tag: tags.className, color: "var(--color-pink)" },
+  {
+    tag: [tags.special(tags.variableName), tags.macroName],
+    color: "var(--color-pink)",
+  },
+  { tag: tags.definition(tags.propertyName), color: "var(--color-cyan)" },
+  {
+    tag: tags.comment,
+    color: "var(--color-muted-foreground)",
+    fontStyle: "italic",
+  },
+  { tag: tags.meta, color: "var(--color-muted-foreground)" },
+  {
+    tag: tags.invalid,
+    color: "var(--color-danger)",
+    textDecoration: "underline",
+  },
 ]);
 
 // --- Exports ---
