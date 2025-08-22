@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/navigation";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { getAdminClient } from "@/lib/supabaseClient";
+import showToast from "@/lib/toast";
 
 type AuthContextType = {
   user: User | null;
@@ -53,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [hasInitialSessionCheck, router],
+    [hasInitialSessionCheck, router]
   );
 
   useEffect(() => {
@@ -121,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: error as Error };
       }
     },
-    [getSupabase],
+    [getSupabase]
   );
 
   const signInWithGoogle = useCallback(async () => {
@@ -154,6 +155,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // No need to manually redirect here - the auth state change listener will handle it
     } catch (error) {
       console.error("Sign out error:", error);
+      showToast.error("Failed to signout");
     }
   }, [getSupabase]);
 

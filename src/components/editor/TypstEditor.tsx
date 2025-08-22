@@ -71,7 +71,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         setIsCompiling(false);
       }
     },
-    [$typst, isTypstReady],
+    [$typst, isTypstReady]
   );
 
   useEffect(() => {
@@ -163,7 +163,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         projectId,
         typPath,
         contentRef.current,
-        pdfContent || undefined,
+        pdfContent || undefined
       );
       setLastSaved(new Date());
       setHasChanges(false);
@@ -194,16 +194,22 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
 
   const handleBack = async () => {
     if (hasChanges && canEdit) {
-      const ok = await confirm({
+      const confirmed = await confirm({
         title: "Save before leaving?",
         description: "Your latest edits will be saved to your document.",
         confirmText: "Save & Leave",
-        cancelText: "Discard Changes",
+        cancelText: "Discard & Leave",
       });
-      if (ok) {
+
+      if (confirmed === null) {
+        // Dialog was closed via cross icon, don't navigate
+        return;
+      }
+      if (confirmed) {
         await handleSave();
       }
     }
+
     router.push("/dashboard");
   };
 

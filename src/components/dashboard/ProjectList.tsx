@@ -27,8 +27,10 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
+import { ShareModal } from "@/components/editor/ShareModal";
 import { getThumbnailUrl } from "@/lib/thumbnailService";
 import { TruncateWithTooltip } from "@/components/ui/TruncateWithTooltip";
+import { useState } from "react";
 
 interface ProjectListProps {
   projects: Project[];
@@ -36,7 +38,7 @@ interface ProjectListProps {
   onDeleteProject: (
     projectId: string,
     typPath: string,
-    thumbnail_path?: string
+    thumbnail_path?: string,
   ) => void;
   currentUser: User;
   isCXO: boolean;
@@ -62,11 +64,16 @@ const ProjectList = React.memo(
     isCXO,
     onRenameRequest,
   }: ProjectListProps) => {
+    const [shareModalOpen, setShareModalOpen] = useState(false);
+    const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+      null,
+    );
+
     const rows = useMemo(() => {
       return projects.map((project) => {
         const isOwner = project.user_id === currentUser.id;
         const isSharedWith = project.project_shares?.some(
-          (t) => currentUser.id === t.shared_with
+          (t) => currentUser.id === t.shared_with,
         );
         const canDelete = isCXO || isOwner;
         const canRename = isCXO || isOwner || !!isSharedWith;
@@ -174,6 +181,18 @@ const ProjectList = React.memo(
                       Open
                     </Link>
                   </DropdownMenuItem>
+                  {isOwner && (
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => {
+                        setSelectedProjectId(project.id);
+                        setShareModalOpen(true);
+                      }}
+                    >
+                      <Share2 className="mr-2 h-4 w-4" />
+                      Share
+                    </DropdownMenuItem>
+                  )}
                   {canRename && (
                     <DropdownMenuItem
                       className="cursor-pointer"
@@ -192,7 +211,7 @@ const ProjectList = React.memo(
                           onDeleteProject(
                             project.id,
                             project.typ_path,
-                            project.thumbnail_path
+                            project.thumbnail_path,
                           )
                         }
                       >
@@ -207,7 +226,15 @@ const ProjectList = React.memo(
           </TableRow>
         );
       });
-    }, [projects, currentUser.id, isCXO, onDeleteProject, onRenameRequest]);
+    }, [
+      projects,
+      currentUser.id,
+      isCXO,
+      onDeleteProject,
+      onRenameRequest,
+      shareModalOpen,
+      selectedProjectId,
+    ]);
 
     return (
       <div className="w-full overflow-hidden">
@@ -224,9 +251,20 @@ const ProjectList = React.memo(
           </TableHeader>
           <TableBody>{rows}</TableBody>
         </Table>
+
+        {/* Share Modal */}
+        <ShareModal
+          isOpen={shareModalOpen}
+          onClose={() => {
+            setShareModalOpen(false);
+            setSelectedProjectId(null);
+          }}
+          projectId={selectedProjectId || ""}
+          currentUserId={currentUser.id}
+        />
       </div>
     );
-  }
+  },
 );
 
 ProjectList.displayName = "ProjectList";

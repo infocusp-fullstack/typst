@@ -41,7 +41,7 @@ type PromptOptions = {
 };
 
 interface DialogContextValue {
-  confirm: (options?: ConfirmOptions) => Promise<boolean>;
+  confirm: (options?: ConfirmOptions) => Promise<boolean | null>;
   prompt: (options?: PromptOptions) => Promise<string | null>;
 }
 
@@ -52,7 +52,9 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     open: boolean;
     options: ConfirmOptions;
   }>({ open: false, options: {} });
-  const confirmResolverRef = useRef<((value: boolean) => void) | null>(null);
+  const confirmResolverRef = useRef<((value: boolean | null) => void) | null>(
+    null,
+  );
 
   const [promptState, setPromptState] = useState<{
     open: boolean;
@@ -70,7 +72,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
   };
 
   const confirm = useCallback((options?: ConfirmOptions) => {
-    return new Promise<boolean>((resolve) => {
+    return new Promise<boolean | null>((resolve) => {
       confirmResolverRef.current = resolve;
       setConfirmState({ open: true, options: options || {} });
     });
@@ -90,6 +92,11 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
 
   const onConfirmCancel = () => {
     confirmResolverRef.current?.(false);
+    closeAll();
+  };
+
+  const onConfirmClose = () => {
+    confirmResolverRef.current?.(null);
     closeAll();
   };
   const onConfirmOk = () => {
@@ -129,7 +136,7 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
       {/* Confirm Dialog */}
       <Dialog
         open={confirmState.open}
-        onOpenChange={(open) => !open && onConfirmCancel()}
+        onOpenChange={(open) => !open && onConfirmClose()}
       >
         <DialogContent>
           <DialogHeader>
