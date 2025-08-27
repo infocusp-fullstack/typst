@@ -30,142 +30,125 @@ export const PreviewPane = memo(function PreviewPane({
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
 
-  // Render all pages of the PDF into <canvas>
   const renderAllPages = useCallback(async () => {
     const pdfDoc = pdfDocRef.current;
     const container = containerRef.current;
     if (!pdfDoc || !container) return;
 
     try {
-      // Clear old pages
       container.innerHTML = "";
 
       for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+        const page = await pdfDoc.getPage(pageNum);
+
+        const highDpiScale = 2;
+        const viewport = page.getViewport({
+          scale: highDpiScale,
+          dontFlip: false,
+        });
+
+        const pageContainer = document.createElement("div");
+        pageContainer.style.position = "relative";
+        pageContainer.style.display = "block";
+        pageContainer.style.marginLeft = "auto";
+        pageContainer.style.marginRight = "auto";
+        pageContainer.style.marginBottom = "1rem";
+        pageContainer.style.width = `${viewport.width / 2}px`;
+        pageContainer.style.height = `${viewport.height / 2}px`;
+        pageContainer.style.transformOrigin = "top center";
+        pageContainer.style.transform = `scale(${scale})`;
+        pageContainer.style.transition =
+          "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)";
+        pageContainer.style.willChange = "transform";
+
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d", {
+          alpha: false,
+          desynchronized: true,
+          willReadFrequently: false,
+        });
+        if (!context) continue;
+
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        canvas.style.width = `${viewport.width / 2}px`;
+        canvas.style.height = `${viewport.height / 2}px`;
+        canvas.style.imageRendering = "crisp-edges";
+
+        // Optimize canvas context for best quality
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = "high";
+        context.globalCompositeOperation = "source-over";
+
+        // Clear canvas before rendering
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
+        await page.render({
+          canvasContext: context,
+          viewport,
+          canvas,
+        }).promise;
+
+        pageContainer.appendChild(canvas);
+
+        // Page number overlay
+        const pageNumberElement = document.createElement("div");
+        pageNumberElement.textContent = `${pageNum}`;
+        pageNumberElement.style.position = "absolute";
+        pageNumberElement.style.bottom = "12px";
+        pageNumberElement.style.right = "12px";
+        pageNumberElement.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+        pageNumberElement.style.color = "white";
+        pageNumberElement.style.padding = "4px 8px";
+        pageNumberElement.style.borderRadius = "4px";
+        pageNumberElement.style.fontSize = "10px";
+        pageNumberElement.style.fontWeight = "500";
+        pageNumberElement.style.zIndex = "5";
+        pageNumberElement.style.border = "1px solid hsl(var(--border))";
+        pageNumberElement.style.boxShadow = "0 1px 2px rgba(0, 0, 0, 0.1)";
+        pageContainer.appendChild(pageNumberElement);
+
         try {
-          const page = await pdfDoc.getPage(pageNum);
-          const highDpiScale = scale * 2;
-          const viewport = page.getViewport({
-            scale: highDpiScale,
-            // Enable high-quality rendering
-            dontFlip: false,
+          const annotations = await page.getAnnotations({ intent: "display" });
+
+          annotations.forEach((annotation) => {
+            if (annotation.subtype === "Link" && annotation.url) {
+              const rect = pdfjsLib.Util.normalizeRect(annotation.rect);
+              const viewportRect = viewport.convertToViewportRectangle(rect);
+              const [x1, y1, x2, y2] = viewportRect;
+
+              const linkElement = document.createElement("a");
+              linkElement.href = annotation.url;
+              linkElement.target = "_blank";
+              linkElement.rel = "noopener noreferrer";
+
+              // Position overlay
+              linkElement.style.position = "absolute";
+              linkElement.style.left = `${Math.min(x1, x2) / 2}px`;
+              linkElement.style.top = `${Math.min(y1, y2) / 2}px`;
+              linkElement.style.width = `${Math.abs(x2 - x1) / 2}px`;
+              linkElement.style.height = `${Math.abs(y2 - y1) / 2}px`;
+
+              linkElement.style.cursor = "pointer";
+              linkElement.style.zIndex = "10";
+              linkElement.style.backgroundColor = "transparent"; // invisible but clickable
+
+              pageContainer.appendChild(linkElement);
+            }
           });
-
-          // Create container for page with relative positioning
-          const pageContainer = document.createElement("div");
-          pageContainer.style.position = "relative";
-          if (pageNum !== pdfDoc.numPages) {
-            pageContainer.style.marginBottom = "1rem";
-          }
-          pageContainer.style.display = "block";
-          pageContainer.style.marginLeft = "auto";
-          pageContainer.style.marginRight = "auto";
-          pageContainer.style.width = `${viewport.width / 2}px`;
-          pageContainer.style.height = `${viewport.height / 2}px`;
-          pageContainer.style.transition =
-            "transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)";
-          pageContainer.style.willChange = "transform";
-          pageContainer.style.backfaceVisibility = "hidden";
-          pageContainer.style.perspective = "1000px";
-          // Create <canvas> for the page
-          const canvas = document.createElement("canvas");
-          canvas.style.position = "absolute";
-          canvas.style.top = "0";
-          canvas.style.left = "0";
-          canvas.style.imageRendering = "crisp-edges"; // Better pixel rendering
-
-          const context = canvas.getContext("2d", {
-            alpha: false,
-            desynchronized: false,
-            willReadFrequently: false,
-          });
-          if (!context) continue;
-
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
-          canvas.style.width = `${viewport.width / 2}px`;
-          canvas.style.height = `${viewport.height / 2}px`;
-
-          // Enable high-quality rendering on canvas
-          context.imageSmoothingEnabled = true;
-          context.imageSmoothingQuality = "high";
-          // Render page into canvas with high quality settings
-          try {
-            await page.render({
-              canvasContext: context,
-              viewport,
-              canvas,
-            }).promise;
-          } catch (renderError) {
-            console.warn(`Failed to render page ${pageNum}:`, renderError);
-            continue;
-          }
-
-          pageContainer.appendChild(canvas);
-
-          // Add page number overlay
-          const pageNumberElement = document.createElement("div");
-          pageNumberElement.textContent = `${pageNum}`;
-          pageNumberElement.style.position = "absolute";
-          pageNumberElement.style.bottom = "12px";
-          pageNumberElement.style.right = "12px";
-          pageNumberElement.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
-          pageNumberElement.style.color = "white";
-          pageNumberElement.style.padding = "4px 8px";
-          pageNumberElement.style.borderRadius = "4px";
-          pageNumberElement.style.fontSize = "10px";
-          pageNumberElement.style.fontWeight = "500";
-          pageNumberElement.style.zIndex = "5";
-          pageNumberElement.style.border = "1px solid hsl(var(--border))";
-          pageNumberElement.style.boxShadow = "0 1px 2px rgba(0, 0, 0, 0.1)";
-          pageContainer.appendChild(pageNumberElement);
-
-          // Get annotations (links) for the page
-          try {
-            const annotations = await page.getAnnotations();
-
-            // Create clickable overlays for links
-            annotations.forEach((annotation) => {
-              if (annotation.subtype === "Link" && annotation.url) {
-                const linkRect = annotation.rect;
-                const linkElement = document.createElement("a");
-
-                // Convert PDF coordinates to viewport coordinates
-                const x = linkRect[0] * scale;
-                const y = viewport.height - linkRect[3] * scale; // Flip Y coordinate
-                const width = (linkRect[2] - linkRect[0]) * scale;
-                const height = (linkRect[3] - linkRect[1]) * scale;
-
-                linkElement.href = annotation.url;
-                linkElement.target = "_blank";
-                linkElement.rel = "noopener noreferrer";
-                linkElement.style.position = "absolute";
-                linkElement.style.left = `${x}px`;
-                linkElement.style.top = `${y}px`;
-                linkElement.style.width = `${width}px`;
-                linkElement.style.height = `${height}px`;
-                linkElement.style.cursor = "pointer";
-                linkElement.style.zIndex = "10";
-
-                pageContainer.appendChild(linkElement);
-              }
-            });
-          } catch (annotationError) {
-            console.warn(
-              `Failed to get annotations for page ${pageNum}:`,
-              annotationError
-            );
-          }
-
-          container.appendChild(pageContainer);
-        } catch (pageError) {
-          console.warn(`Failed to process page ${pageNum}:`, pageError);
-          continue;
+        } catch (annotationError) {
+          console.warn(
+            `Failed to get annotations for page ${pageNum}:`,
+            annotationError
+          );
         }
+
+        container.appendChild(pageContainer);
       }
     } catch (error) {
       console.error("Error rendering PDF pages:", error);
     }
-  }, [scale]);
+  }, []);
 
   // Load PDF when content changes
   useEffect(() => {
@@ -174,11 +157,9 @@ export const PreviewPane = memo(function PreviewPane({
     if (content instanceof Uint8Array) {
       (async () => {
         try {
-          // Create a copy of the data to avoid ArrayBuffer detachment issues
           const dataCopy = new Uint8Array(content);
           const pdf = await pdfjsLib.getDocument({
             data: dataCopy,
-            // Enable high-quality rendering
             cMapUrl: "/pdfjs/cmaps/",
             cMapPacked: true,
           }).promise;
@@ -212,7 +193,6 @@ export const PreviewPane = memo(function PreviewPane({
 
     return () => {
       isMounted = false;
-      // Cleanup PDF document when component unmounts or content changes
       if (pdfDocRef.current) {
         try {
           pdfDocRef.current.destroy();
@@ -223,13 +203,6 @@ export const PreviewPane = memo(function PreviewPane({
       }
     };
   }, [content, renderAllPages, onTotalPagesChange]);
-
-  // Re-render all pages when zoom changes
-  useEffect(() => {
-    if (pdfDocRef.current) {
-      renderAllPages();
-    }
-  }, [scale]);
 
   // ---------------- UI States ----------------
   if (isCompiling) {
@@ -259,12 +232,10 @@ export const PreviewPane = memo(function PreviewPane({
     );
   }
 
-  // ---------------- PDF Viewer ----------------
   return (
     <div className="flex flex-col h-full w-full">
-      {/* Minimal toolbar with zoom controls and page info */}
+      {/* Toolbar */}
       <div className="flex items-center justify-center gap-1 px-1 py-1 border-b bg-background/90 backdrop-blur-sm supports-[backdrop-filter]:bg-background h-auto">
-        {/* Page info */}
         {totalPages > 0 && (
           <Badge
             variant="outline"
@@ -274,7 +245,6 @@ export const PreviewPane = memo(function PreviewPane({
           </Badge>
         )}
 
-        {/* Zoom controls */}
         <Button
           variant="ghost"
           size="custom"
@@ -300,11 +270,17 @@ export const PreviewPane = memo(function PreviewPane({
         </Button>
       </div>
 
-      {/* Container where canvases will be appended */}
-      <div
-        ref={containerRef}
-        className="flex-1 overflow-auto p-4 bg-gray-100 dark:bg-[#272822]"
-      />
+      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]">
+        <div
+          ref={containerRef}
+          className="flex flex-col items-center pb-8 pt-4"
+          style={{
+            transform: `scale(${scale})`,
+            transformOrigin: "top center",
+            transition: "transform 0.25s ease-in-out",
+          }}
+        />
+      </div>
     </div>
   );
 });
