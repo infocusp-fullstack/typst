@@ -9,7 +9,7 @@ interface ProjectGridProps {
   onDeleteProject: (
     projectId: string,
     typPath: string,
-    thumbnail_path?: string
+    thumbnail_path?: string,
   ) => void;
   currentUser: User;
   isCXO: boolean;
@@ -36,7 +36,7 @@ const ProjectGrid = React.memo(
               onDeleteProject(
                 project.id,
                 project.typ_path,
-                project.thumbnail_path
+                project.thumbnail_path,
               )
             }
             currentUser={currentUser}
@@ -46,7 +46,7 @@ const ProjectGrid = React.memo(
         ))}
       </div>
     );
-  }
+  },
 );
 
 ProjectGrid.displayName = "ProjectGrid";

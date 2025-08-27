@@ -36,97 +36,171 @@ export const PreviewPane = memo(function PreviewPane({
     const container = containerRef.current;
     if (!pdfDoc || !container) return;
 
-    // Clear old pages
-    container.innerHTML = "";
+    try {
+      // Clear old pages
+      container.innerHTML = "";
 
-    for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-      const page = await pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale });
+      for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+        try {
+          const page = await pdfDoc.getPage(pageNum);
+          const highDpiScale = scale * 2;
+          const viewport = page.getViewport({
+            scale: highDpiScale,
+            // Enable high-quality rendering
+            dontFlip: false,
+          });
 
-      // Create container for page with relative positioning
-      const pageContainer = document.createElement("div");
-      pageContainer.style.position = "relative";
-      pageContainer.style.marginBottom = "1rem";
-      pageContainer.style.display = "block";
-      pageContainer.style.marginLeft = "auto";
-      pageContainer.style.marginRight = "auto";
-      pageContainer.style.width = `${viewport.width}px`;
-      pageContainer.style.height = `${viewport.height}px`;
+          // Create container for page with relative positioning
+          const pageContainer = document.createElement("div");
+          pageContainer.style.position = "relative";
+          if (pageNum !== pdfDoc.numPages) {
+            pageContainer.style.marginBottom = "1rem";
+          }
+          pageContainer.style.display = "block";
+          pageContainer.style.marginLeft = "auto";
+          pageContainer.style.marginRight = "auto";
+          pageContainer.style.width = `${viewport.width / 2}px`;
+          pageContainer.style.height = `${viewport.height / 2}px`;
+          pageContainer.style.transition =
+            "transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)";
+          pageContainer.style.willChange = "transform";
+          pageContainer.style.backfaceVisibility = "hidden";
+          pageContainer.style.perspective = "1000px";
+          // Create <canvas> for the page
+          const canvas = document.createElement("canvas");
+          canvas.style.position = "absolute";
+          canvas.style.top = "0";
+          canvas.style.left = "0";
+          canvas.style.imageRendering = "crisp-edges"; // Better pixel rendering
 
-      // Create <canvas> for the page
-      const canvas = document.createElement("canvas");
-      canvas.style.position = "absolute";
-      canvas.style.top = "0";
-      canvas.style.left = "0";
+          const context = canvas.getContext("2d", {
+            alpha: false,
+            desynchronized: false,
+            willReadFrequently: false,
+          });
+          if (!context) continue;
 
-      const context = canvas.getContext("2d")!;
-      canvas.height = viewport.height;
-      canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          canvas.style.width = `${viewport.width / 2}px`;
+          canvas.style.height = `${viewport.height / 2}px`;
 
-      // Render page into canvas
-      await page.render({ canvasContext: context, viewport, canvas }).promise;
+          // Enable high-quality rendering on canvas
+          context.imageSmoothingEnabled = true;
+          context.imageSmoothingQuality = "high";
+          // Render page into canvas with high quality settings
+          try {
+            await page.render({
+              canvasContext: context,
+              viewport,
+              canvas,
+            }).promise;
+          } catch (renderError) {
+            console.warn(`Failed to render page ${pageNum}:`, renderError);
+            continue;
+          }
 
-      pageContainer.appendChild(canvas);
+          pageContainer.appendChild(canvas);
 
-      // Add page number overlay
-      const pageNumberElement = document.createElement("div");
-      pageNumberElement.textContent = `${pageNum}`;
-      pageNumberElement.style.position = "absolute";
-      pageNumberElement.style.bottom = "12px";
-      pageNumberElement.style.right = "12px";
-      pageNumberElement.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
-      pageNumberElement.style.color = "white";
-      pageNumberElement.style.padding = "3px 6px";
-      pageNumberElement.style.borderRadius = "3px";
-      pageNumberElement.style.fontSize = "10px";
-      pageNumberElement.style.fontWeight = "600";
-      pageNumberElement.style.zIndex = "5";
-      pageNumberElement.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.2)";
-      pageNumberElement.style.backdropFilter = "blur(4px)";
-      pageContainer.appendChild(pageNumberElement);
+          // Add page number overlay
+          const pageNumberElement = document.createElement("div");
+          pageNumberElement.textContent = `${pageNum}`;
+          pageNumberElement.style.position = "absolute";
+          pageNumberElement.style.bottom = "12px";
+          pageNumberElement.style.right = "12px";
+          pageNumberElement.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+          pageNumberElement.style.color = "white";
+          pageNumberElement.style.padding = "4px 8px";
+          pageNumberElement.style.borderRadius = "4px";
+          pageNumberElement.style.fontSize = "10px";
+          pageNumberElement.style.fontWeight = "500";
+          pageNumberElement.style.zIndex = "5";
+          pageNumberElement.style.border = "1px solid hsl(var(--border))";
+          pageNumberElement.style.boxShadow = "0 1px 2px rgba(0, 0, 0, 0.1)";
+          pageContainer.appendChild(pageNumberElement);
 
-      // Get annotations (links) for the page
-      const annotations = await page.getAnnotations();
+          // Get annotations (links) for the page
+          try {
+            const annotations = await page.getAnnotations();
 
-      // Create clickable overlays for links
-      annotations.forEach((annotation) => {
-        if (annotation.subtype === "Link" && annotation.url) {
-          const linkRect = annotation.rect;
-          const linkElement = document.createElement("a");
+            // Create clickable overlays for links
+            annotations.forEach((annotation) => {
+              if (annotation.subtype === "Link" && annotation.url) {
+                const linkRect = annotation.rect;
+                const linkElement = document.createElement("a");
 
-          // Convert PDF coordinates to viewport coordinates
-          const x = linkRect[0] * scale;
-          const y = viewport.height - linkRect[3] * scale; // Flip Y coordinate
-          const width = (linkRect[2] - linkRect[0]) * scale;
-          const height = (linkRect[3] - linkRect[1]) * scale;
+                // Convert PDF coordinates to viewport coordinates
+                const x = linkRect[0] * scale;
+                const y = viewport.height - linkRect[3] * scale; // Flip Y coordinate
+                const width = (linkRect[2] - linkRect[0]) * scale;
+                const height = (linkRect[3] - linkRect[1]) * scale;
 
-          linkElement.href = annotation.url;
-          linkElement.target = "_blank";
-          linkElement.rel = "noopener noreferrer";
-          linkElement.style.position = "absolute";
-          linkElement.style.left = `${x}px`;
-          linkElement.style.top = `${y}px`;
-          linkElement.style.width = `${width}px`;
-          linkElement.style.height = `${height}px`;
-          linkElement.style.cursor = "pointer";
-          linkElement.style.zIndex = "10";
+                linkElement.href = annotation.url;
+                linkElement.target = "_blank";
+                linkElement.rel = "noopener noreferrer";
+                linkElement.style.position = "absolute";
+                linkElement.style.left = `${x}px`;
+                linkElement.style.top = `${y}px`;
+                linkElement.style.width = `${width}px`;
+                linkElement.style.height = `${height}px`;
+                linkElement.style.cursor = "pointer";
+                linkElement.style.zIndex = "10";
 
-          pageContainer.appendChild(linkElement);
+                pageContainer.appendChild(linkElement);
+              }
+            });
+          } catch (annotationError) {
+            console.warn(
+              `Failed to get annotations for page ${pageNum}:`,
+              annotationError
+            );
+          }
+
+          container.appendChild(pageContainer);
+        } catch (pageError) {
+          console.warn(`Failed to process page ${pageNum}:`, pageError);
+          continue;
         }
-      });
-
-      container.appendChild(pageContainer);
+      }
+    } catch (error) {
+      console.error("Error rendering PDF pages:", error);
     }
   }, [scale]);
 
   // Load PDF when content changes
   useEffect(() => {
+    let isMounted = true;
+
     if (content instanceof Uint8Array) {
       (async () => {
-        const pdf = await pdfjsLib.getDocument({ data: content }).promise;
-        pdfDocRef.current = pdf;
-        onTotalPagesChange(pdf.numPages);
-        await renderAllPages();
+        try {
+          // Create a copy of the data to avoid ArrayBuffer detachment issues
+          const dataCopy = new Uint8Array(content);
+          const pdf = await pdfjsLib.getDocument({
+            data: dataCopy,
+            // Enable high-quality rendering
+            cMapUrl: "/pdfjs/cmaps/",
+            cMapPacked: true,
+          }).promise;
+
+          if (!isMounted) {
+            pdf.destroy();
+            return;
+          }
+
+          pdfDocRef.current = pdf;
+          onTotalPagesChange(pdf.numPages);
+          await renderAllPages();
+        } catch (error) {
+          console.error("Error loading PDF:", error);
+          if (isMounted) {
+            pdfDocRef.current = null;
+            onTotalPagesChange(0);
+            if (containerRef.current) {
+              containerRef.current.innerHTML = "";
+            }
+          }
+        }
       })();
     } else {
       pdfDocRef.current = null;
@@ -135,14 +209,27 @@ export const PreviewPane = memo(function PreviewPane({
         containerRef.current.innerHTML = "";
       }
     }
-  }, [content, renderAllPages]);
+
+    return () => {
+      isMounted = false;
+      // Cleanup PDF document when component unmounts or content changes
+      if (pdfDocRef.current) {
+        try {
+          pdfDocRef.current.destroy();
+        } catch (error) {
+          console.warn("Error cleaning up PDF:", error);
+        }
+        pdfDocRef.current = null;
+      }
+    };
+  }, [content, renderAllPages, onTotalPagesChange]);
 
   // Re-render all pages when zoom changes
   useEffect(() => {
     if (pdfDocRef.current) {
       renderAllPages();
     }
-  }, [scale, renderAllPages]);
+  }, [scale]);
 
   // ---------------- UI States ----------------
   if (isCompiling) {

@@ -77,7 +77,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
       const clampedPosition = Math.max(20, Math.min(80, newPosition)); // Min 20%, Max 80%
       setSplitPosition(clampedPosition);
     },
-    [isDragging]
+    [isDragging],
   );
 
   const handleMouseUp = useCallback(() => {
@@ -132,7 +132,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         setIsCompiling(false);
       }
     },
-    [$typst, isTypstReady]
+    [$typst, isTypstReady],
   );
 
   useEffect(() => {
@@ -224,7 +224,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         projectId,
         typPath,
         contentRef.current,
-        pdfContent || undefined
+        pdfContent || undefined,
       );
       setLastSaved(new Date());
       setHasChanges(false);
