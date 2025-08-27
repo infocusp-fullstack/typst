@@ -12,7 +12,8 @@ FOR SELECT
 USING (
     bucket_id = 'user-projects'
     AND (
-        auth.uid()::text = (storage.foldername(name))[1]
+        (storage.foldername(name))[1] = 'templates'
+        OR auth.uid()::text = (storage.foldername(name))[1]
         OR EXISTS (
             SELECT 1
             FROM project_shares ps

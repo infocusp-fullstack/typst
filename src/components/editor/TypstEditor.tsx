@@ -48,7 +48,68 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   const [isCompiling, setIsCompiling] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
+  const [scale, setScale] = useState(1.0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [splitPosition, setSplitPosition] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("editor-split-position");
+      return saved ? parseFloat(saved) : 50;
+    }
+    return 50;
+  });
+  const [isDragging, setIsDragging] = useState(false);
   const didInitRef = useRef(false);
+
+  // Handle mouse events for resizing
+  const handleMouseDown = useCallback(() => {
+    setIsDragging(true);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging) return;
+
+      const container = document.querySelector(".split-container");
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      const newPosition = ((e.clientX - rect.left) / rect.width) * 100;
+      const clampedPosition = Math.max(20, Math.min(80, newPosition)); // Min 20%, Max 80%
+      setSplitPosition(clampedPosition);
+    },
+    [isDragging]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Save split position to localStorage
+  useEffect(() => {
+    localStorage.setItem("editor-split-position", splitPosition.toString());
+  }, [splitPosition]);
+
+  // Add global mouse event listeners
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    } else {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isDragging, handleMouseMove, handleMouseUp]);
 
   const compileTypst = useCallback(
     async (source: string) => {
@@ -132,7 +193,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     if (projectId !== "new") void load();
   }, [projectId, isTypstReady, user.id, compileTypst, router]);
 
-  const debouncedCompile = useDebounce(compileTypst, 1500);
+  const debouncedCompile = useDebounce(compileTypst, 600);
 
   const handleChange = (newDoc: string) => {
     if (!canEdit) return; // Prevent editing if user doesn't have permission
@@ -237,8 +298,11 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         isOwner={isOwner}
       />
 
-      <div className="flex-1 flex overflow-hidden">
-        <div className="w-1/2 border-r overflow-hidden h-full">
+      <div className="flex-1 flex overflow-hidden split-container">
+        <div
+          className="border-r overflow-hidden h-full"
+          style={{ width: `${splitPosition}%` }}
+        >
           <EditorPane
             key={`${projectId} - ${theme}`}
             initialContent={contentRef.current}
@@ -248,11 +312,31 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
             readOnly={!canEdit}
           />
         </div>
-        <div className="w-1/2 overflow-auto preview-container h-full">
+
+        {/* Resizable Handle */}
+        <div
+          className="w-2 bg-border hover:bg-accent cursor-col-resize transition-all duration-200 relative group flex items-center justify-center"
+          onMouseDown={handleMouseDown}
+        >
+          <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="w-1 h-1 bg-accent-foreground/40 rounded-full" />
+            <div className="w-1 h-1 bg-accent-foreground/40 rounded-full" />
+            <div className="w-1 h-1 bg-accent-foreground/40 rounded-full" />
+          </div>
+        </div>
+
+        <div
+          className="overflow-auto preview-container h-full"
+          style={{ width: `${100 - splitPosition}%` }}
+        >
           <PreviewPane
             content={preview}
             isCompiling={isCompiling}
             error={error}
+            scale={scale}
+            totalPages={totalPages}
+            onScaleChange={setScale}
+            onTotalPagesChange={setTotalPages}
           />
         </div>
       </div>
