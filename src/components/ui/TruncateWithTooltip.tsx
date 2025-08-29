@@ -20,7 +20,8 @@ export function TruncateWithTooltip<T extends HTMLElement = HTMLElement>({
     if (!el) return;
 
     const checkClamped = () => {
-      const clamped = el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth;
+      const clamped =
+        el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth;
       setIsClamped(clamped);
     };
 

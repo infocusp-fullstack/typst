@@ -180,7 +180,7 @@
 
 .cm-content {
   @apply text-foreground font-mono font-medium;
-  font-size: 1em
+  font-size: 1em;
 }
 
 .cm-gutters {
