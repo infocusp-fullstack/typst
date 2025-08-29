@@ -21,7 +21,7 @@ export async function fetchUserProjects(
   page: number = 0,
   pageSize: number = PAGE_SIZE,
   filter: FilterType = "owned",
-  userId: string,
+  userId: string
 ): Promise<{
   projects: ProjectWithShares[];
   hasMore: boolean;
@@ -49,7 +49,7 @@ export async function fetchUserProjects(
           *,
           project_shares!inner(shared_with)
         `,
-          { count: "exact" },
+          { count: "exact" }
         )
         .eq("project_shares.shared_with", userId)
         .order("updated_at", { ascending: false })
@@ -109,7 +109,7 @@ export async function searchUserProjects(
   page: number = 0,
   pageSize: number = PAGE_SIZE,
   filter: FilterType = "owned",
-  userId: string,
+  userId: string
 ): Promise<{
   projects: ProjectWithShares[];
   hasMore: boolean;
@@ -138,7 +138,7 @@ export async function searchUserProjects(
           *,
           project_shares!inner(shared_with)
         `,
-          { count: "exact" },
+          { count: "exact" }
         )
         .eq("project_shares.shared_with", userId)
         .ilike("title", `%${searchQuery.trim()}%`)
@@ -197,7 +197,7 @@ export async function searchUserProjects(
 }
 
 export async function fetchUserProjectById(
-  projectId: string,
+  projectId: string
 ): Promise<Project | null> {
   try {
     const supabase = getAdminClient();
@@ -221,7 +221,7 @@ export async function createProjectFromTemplate(
   userId: string,
   title: string,
   template: Template,
-  projectType: "resume" | "document" = "document",
+  projectType: "resume" | "document" = "document"
 ): Promise<Project> {
   const projectId = crypto.randomUUID();
   const typPath = `${userId}/${projectId}/main.typ`;
@@ -271,6 +271,65 @@ export async function userHasResume(userId: string): Promise<boolean> {
   return !!data && !error;
 }
 
+export async function fetchPublicResume(username: string): Promise<{
+  typPath: string;
+  signedUrl: string;
+  title: string;
+} | null> {
+  try {
+    const email = `${username}@infocusp.com`;
+    const supabase = getAdminClient();
+
+    // // Get user by email from auth.users
+    // const { data: userData, error: userError } = await supabase
+    //   .from("auth.users")
+    //   .select("id")
+    //   .eq("email", email)
+    //   .single();
+
+    // if (userError || !userData) {
+    //   return null;
+    // }
+
+    // const userId = (userData as { id: string }).id;
+
+    const userId = "08fabbee-17c3-4f1a-8705-8dc02368f756";
+
+    // Get resume projects for the user
+    const { data: projects, error: projectsError } = await supabase
+      .from("projects")
+      .select("typ_path, title")
+      .eq("user_id", userId)
+      .eq("project_type", "resume")
+      .order("updated_at", { ascending: false })
+      .limit(1); // Get the most recent resume
+
+    if (projectsError || !projects || projects.length === 0) {
+      return null;
+    }
+
+    const resume = projects[0] as { typ_path: string; title: string };
+
+    // Get the public URL for the typ file
+    const { data: signedUrlData, error: urlError } = await supabase.storage
+      .from("user-projects")
+      .createSignedUrl(resume.typ_path, 60); // 60 seconds
+
+    if (urlError || !signedUrlData?.signedUrl) {
+      throw new Error(`Signed URL error: ${urlError?.message}`);
+    }
+
+    return {
+      typPath: resume.typ_path,
+      signedUrl: signedUrlData.signedUrl,
+      title: resume.title,
+    };
+  } catch (error) {
+    console.error("Error fetching public resume:", error);
+    return null;
+  }
+}
+
 /* ---------- Load project file ---------- */
 export async function loadProjectFile(path: string): Promise<string> {
   try {
@@ -303,7 +362,7 @@ export async function loadProjectFile(path: string): Promise<string> {
 /* ---------- Create new project with initial file ---------- */
 export async function createNewProject(
   userId: string,
-  title: string = "Untitled Document",
+  title: string = "Untitled Document"
 ): Promise<Project> {
   try {
     const projectId = crypto.randomUUID();
@@ -353,7 +412,7 @@ export async function saveProjectFile(
   projectId: string,
   typPath: string,
   code: string,
-  pdfContent?: PDFContent,
+  pdfContent?: PDFContent
 ): Promise<void> {
   try {
     const supabase = getAdminClient();
@@ -376,7 +435,7 @@ export async function saveProjectFile(
         const thumbnailPath = `${typPath.replace(".typ", "_thumb.png")}`;
         const storedPathOrUrl = await generateAndUploadThumbnail(
           pdfContent,
-          thumbnailPath,
+          thumbnailPath
         );
 
         // Update database with thumbnail path or public URL
@@ -391,7 +450,7 @@ export async function saveProjectFile(
         if (thumbnailUpdateError) {
           console.error(
             "Failed to update thumbnail path:",
-            thumbnailUpdateError,
+            thumbnailUpdateError
           );
         }
       } catch (thumbnailError) {
@@ -406,7 +465,7 @@ export async function saveProjectFile(
 /* ---------- Rename project ---------- */
 export async function renameProject(
   projectId: string,
-  newTitle: string,
+  newTitle: string
 ): Promise<Project> {
   try {
     const supabase = getAdminClient();
@@ -435,7 +494,7 @@ export async function renameProject(
 export async function deleteProject(
   projectId: string,
   typPath: string,
-  thumbnail_path?: string,
+  thumbnail_path?: string
 ): Promise<void> {
   try {
     const supabase = getAdminClient();
