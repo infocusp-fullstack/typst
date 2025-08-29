@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [hasInitialSessionCheck, router]
+    [hasInitialSessionCheck, router],
   );
 
   useEffect(() => {
@@ -122,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { error: error as Error };
       }
     },
-    [getSupabase]
+    [getSupabase],
   );
 
   const signInWithGoogle = useCallback(async () => {

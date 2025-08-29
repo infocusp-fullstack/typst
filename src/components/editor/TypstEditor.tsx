@@ -71,7 +71,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         setIsCompiling(false);
       }
     },
-    [$typst, isTypstReady]
+    [$typst, isTypstReady],
   );
 
   useEffect(() => {
@@ -163,7 +163,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         projectId,
         typPath,
         contentRef.current,
-        pdfContent || undefined
+        pdfContent || undefined,
       );
       setLastSaved(new Date());
       setHasChanges(false);
