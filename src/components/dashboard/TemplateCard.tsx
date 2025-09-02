@@ -41,7 +41,10 @@ const TemplateCard = React.memo(
             <div className="absolute bottom-0 left-0 right-0 p-3 bg-card border-t border-border">
               <TruncateWithTooltip<HTMLHeadingElement> tooltip={template.title}>
                 {({ ref }) => (
-                  <h3 ref={ref} className="text-sm font-medium truncate hover:text-primary transition-colors">
+                  <h3
+                    ref={ref}
+                    className="text-sm font-medium truncate hover:text-primary transition-colors"
+                  >
                     {template.title}
                   </h3>
                 )}
@@ -52,9 +55,14 @@ const TemplateCard = React.memo(
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mt-1">
-                    <TruncateWithTooltip<HTMLSpanElement> tooltip={template.category ?? "Other"}>
+                    <TruncateWithTooltip<HTMLSpanElement>
+                      tooltip={template.category ?? "Other"}
+                    >
                       {({ ref }) => (
-                        <span ref={ref} className="text-xs text-muted-foreground truncate">
+                        <span
+                          ref={ref}
+                          className="text-xs text-muted-foreground truncate"
+                        >
                           {template.category ?? "Other"}
                         </span>
                       )}

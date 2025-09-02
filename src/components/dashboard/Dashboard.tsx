@@ -181,7 +181,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
     (projectId: string, currentTitle: string) => {
       setRenameModal({ isOpen: true, projectId, currentTitle });
     },
-    []
+    [],
   );
 
   const handleSearchChange = useCallback((query: string) => {
@@ -280,7 +280,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         showErrorAlert("delete");
       }
     },
-    [refresh, confirm]
+    [refresh, confirm],
   );
 
   const handleRenameProject = useCallback(
@@ -296,7 +296,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         throw err;
       }
     },
-    []
+    [],
   );
 
   const handleSignOut = useCallback(async () => {
@@ -340,7 +340,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           const alreadyHas = await userHasResume(user.id);
           if (alreadyHas) {
             showToast.warning(
-              "You already have a resume. Please delete it before creating a new one."
+              "You already have a resume. Please delete it before creating a new one.",
             );
             return;
           }
@@ -369,7 +369,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
           user.id,
           title.trim(),
           template,
-          template.category === "resume" ? "resume" : "document"
+          template.category === "resume" ? "resume" : "document",
         );
 
         showToast.dismiss(loadingId);
@@ -383,7 +383,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         setIsCreatingFromTemplate(false);
       }
     },
-    [isCreating, isCreatingFromTemplate, user.id, router, prompt]
+    [isCreating, isCreatingFromTemplate, user.id, router, prompt],
   );
 
   const EmptyState = useMemo(
@@ -408,7 +408,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         </CardContent>
       </Card>
     ),
-    [searchQuery, handleCreateNewDocument, isCreating]
+    [searchQuery, handleCreateNewDocument, isCreating],
   );
 
   const LoadMoreIndicator = () => (

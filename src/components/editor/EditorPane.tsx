@@ -102,7 +102,7 @@ export function EditorPane({
           color: isDark ? "#f8f8f2" : "#111827",
         },
       },
-      { dark: isDark },
+      { dark: isDark }
     );
   }, [theme]);
 
@@ -145,6 +145,7 @@ export function EditorPane({
         keymap.of([...readOnlyKeymap, saveKeymap]),
         updateListener,
         createEditorTheme(),
+        EditorView.lineWrapping,
         // Disable editing in read-only mode
         readOnly ? EditorView.editable.of(false) : [],
       ],

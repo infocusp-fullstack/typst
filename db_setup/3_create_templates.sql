@@ -1,0 +1,1 @@
+INSERT INTO "public"."templates" ("id", "title", "description", "preview_image_url", "category", "is_active", "storage_path", "content") VALUES ('d9f84a1c-d0fe-432b-9fc4-44d6a3b2198f', 'Basic Resume', 'A clean and simple resume layout.', 'templates/basic-resume.png', 'resume', 'true', 'templates/resume/basic-resume.typ', null);

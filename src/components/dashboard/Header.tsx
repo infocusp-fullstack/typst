@@ -50,7 +50,7 @@ export function Header({
       <div className="flex h-14 items-center gap-4 px-4">
         <Link href="/" prefetch className="flex items-center gap-2">
           <Logo size="sm" />
-          <span className="font-semibold text-lg">Infocusp Resume</span>
+          <span className="font-semibold text-lg">Infocusp Resumes</span>
         </Link>
 
         <SearchBar value={searchQuery} onChange={onSearchChange} />
