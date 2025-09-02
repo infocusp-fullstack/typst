@@ -154,7 +154,7 @@ export default function Login() {
         <div className="flex h-14 items-center gap-4 px-4">
           <div className="flex items-center gap-2">
             <Logo size="sm" />
-            <span className="font-semibold text-lg">Infocusp Resume</span>
+            <span className="font-semibold text-lg">Infocusp Resumes</span>
           </div>
 
           <div className="flex-1" />
@@ -181,7 +181,7 @@ export default function Login() {
             </div>
             <div className="space-y-2">
               <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 via-blue-900 to-indigo-900 dark:from-white dark:via-blue-100 dark:to-indigo-100 bg-clip-text text-transparent">
-                Infocusp Resume
+                Infocusp Resumes
               </h1>
             </div>
           </div>

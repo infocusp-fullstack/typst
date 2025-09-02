@@ -53,7 +53,7 @@ export const Toolbar = memo(function Toolbar({
         <div className="flex items-center gap-2">
           <Link href="/" prefetch className="flex items-center gap-2">
             <Logo size="sm" />
-            <span className="font-semibold">Infocusp Resume</span>
+            <span className="font-semibold">Infocusp Resumes</span>
           </Link>
           {projectTitle && (
             <>
