@@ -7,12 +7,14 @@ interface PreviewPaneProps {
   content: PDFContent | string | null;
   isCompiling: boolean;
   error: string | null;
+  isTypstLoading?: boolean;
 }
 
-export const PreviewPane = memo(function PreviewPane({
+const PreviewPane = memo(function PreviewPane({
   content,
   isCompiling,
   error,
+  isTypstLoading = false,
 }: PreviewPaneProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
@@ -32,29 +34,10 @@ export const PreviewPane = memo(function PreviewPane({
     }
   }, [content]);
 
-  if (isCompiling) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <div className="animate-spin h-6 w-6 rounded-full border-2 border-b-0 border-primary" />
-        <div className="text-xs text-muted-foreground">
-          Compiling document...
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="text-red-500 p-4">
         <strong>Error:</strong> {error}
-      </div>
-    );
-  }
-
-  if (!content || (typeof content === "string" && content.trim() === "")) {
-    return (
-      <div className="placeholder flex items-center justify-center h-full text-muted-foreground text-sm">
-        Start typing to see your document
       </div>
     );
   }
@@ -68,6 +51,29 @@ export const PreviewPane = memo(function PreviewPane({
     );
   }
 
+  // Show loading state when compiling or when Typst is loading
+  if (isCompiling || isTypstLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="animate-spin h-6 w-6 rounded-full border-2 border-b-0 border-primary" />
+        <div className="text-xs text-muted-foreground">
+          {isTypstLoading ? "Preparing Typst..." : "Compiling document..."}
+        </div>
+      </div>
+    );
+  }
+
+  // Only show "start typing" message if there's genuinely no content and we're not in initial load
+  if (!content || (typeof content === "string" && content.trim() === "")) {
+    if (!error) {
+      return (
+        <div className="placeholder flex items-center justify-center h-full text-muted-foreground text-sm">
+          Start typing to see your document
+        </div>
+      );
+    }
+  }
+
   // Fallback for string content (if any)
   return (
     <div
@@ -76,3 +82,5 @@ export const PreviewPane = memo(function PreviewPane({
     />
   );
 });
+
+export default PreviewPane;

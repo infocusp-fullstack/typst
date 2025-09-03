@@ -3,11 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
-const TypstEditor = dynamic(() => import("@/components/editor/TypstEditor"), {
-  ssr: false,
-  loading: () => <Loading text="Opening editor..." fullScreen />,
-});
+import TypstEditor from "@/components/editor/TypstEditor";
 import { useAuth } from "@/hooks/useAuth";
 import { Loading } from "@/components/ui/loading";
 
