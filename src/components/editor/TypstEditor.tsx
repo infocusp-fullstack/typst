@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/hooks/useTheme";
-import { useTypst } from "@/hooks/useTypyst";
+import { useTypstGlobal } from "@/hooks/useTypstProvider";
 import {
   fetchUserProjectById,
   loadProjectFile,
@@ -11,10 +11,10 @@ import {
 } from "@/lib/projectService";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Toolbar } from "@/components/editor/Toolbar";
-import { EditorPane } from "@/components/editor/EditorPane";
-import { PreviewPane } from "@/components/editor/PreviewPane";
+import EditorPane from "@/components/editor/EditorPane";
+import PreviewPane from "@/components/editor/PreviewPane";
 import { User } from "@supabase/supabase-js";
-import { Loading } from "@/components/ui/loading";
+
 import {
   canEditProject,
   canViewProject,
@@ -34,7 +34,13 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   const { confirm } = useDialog();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const { $typst, isReady: isTypstReady } = useTypst();
+  const {
+    $typst,
+    isReady: isTypstReady,
+    isLoading: isTypstLoading,
+    compileAsync,
+    compileSync,
+  } = useTypstGlobal();
 
   const contentRef = useRef("");
   const [isLoading, setIsLoading] = useState(true);
@@ -59,6 +65,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   });
   const [isDragging, setIsDragging] = useState(false);
   const didInitRef = useRef(false);
+  const hasCompiledInitialRef = useRef(false);
 
   // Handle mouse events for resizing
   const handleMouseDown = useCallback(() => {
@@ -77,7 +84,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
       const clampedPosition = Math.max(20, Math.min(80, newPosition)); // Min 20%, Max 80%
       setSplitPosition(clampedPosition);
     },
-    [isDragging],
+    [isDragging]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -113,7 +120,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
 
   const compileTypst = useCallback(
     async (source: string) => {
-      if (!$typst || !isTypstReady || !source) {
+      if (!source) {
         setPreview(null);
         return;
       }
@@ -122,28 +129,27 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
       setError(null);
 
       try {
-        const pdf = await $typst.pdf({ mainContent: source });
+        // Use async compilation for user edits to keep UI responsive
+        const pdf = await compileAsync(source);
         setPreview(pdf);
       } catch (err) {
+        console.error("Compilation failed:", err);
         setError("Compilation failed");
-        console.error(err);
-        setPreview(null); // fallback on error
+        setPreview(null);
       } finally {
         setIsCompiling(false);
       }
     },
-    [$typst, isTypstReady],
+    [$typst, isTypstReady]
   );
 
   useEffect(() => {
-    if (didInitRef.current && !isTypstReady) return;
+    if (didInitRef.current) return;
     didInitRef.current = true;
 
     const load = async () => {
       try {
         setIsLoading(true);
-
-        if (!isTypstReady) return;
 
         // Fetch project meta and permissions in parallel
         const project = await fetchUserProjectById(projectId);
@@ -179,9 +185,6 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         setTypPath(project.typ_path);
         setLastSaved(new Date(project.updated_at));
         setHasChanges(false);
-
-        // Compile after setting state
-        compileTypst(content);
       } catch {
         showToast.error("Failed to load project.");
         router.push("/dashboard");
@@ -191,9 +194,30 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     };
 
     if (projectId !== "new") void load();
-  }, [projectId, isTypstReady, user.id, compileTypst, router]);
+  }, [projectId, user.id, compileTypst, router]);
 
   const debouncedCompile = useDebounce(compileTypst, 600);
+
+  // Watch for Typst readiness and compile once when everything is ready
+  useEffect(() => {
+    if (isTypstReady && contentRef.current && !hasCompiledInitialRef.current) {
+      hasCompiledInitialRef.current = true;
+      setIsCompiling(true);
+
+      // Use sync compilation for initial load since Typst should be ready
+      compileSync(contentRef.current)
+        .then((pdf) => {
+          setPreview(pdf);
+          setIsCompiling(false);
+        })
+        .catch((err) => {
+          console.error("Initial compilation failed:", err);
+          setError("Compilation failed");
+          setPreview(null);
+          setIsCompiling(false);
+        });
+    }
+  }, [isTypstReady, compileSync]);
 
   const handleChange = (newDoc: string) => {
     if (!canEdit) return; // Prevent editing if user doesn't have permission
@@ -211,9 +235,13 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
 
       // Always compile fresh content for save to ensure we have the latest version
       let pdfContent: PDFContent | null = null;
-      if ($typst && isTypstReady) {
+      const typstInstance = $typst;
+      if (!typstInstance || !isTypstReady) {
+        return;
+      }
+      if (typstInstance) {
         try {
-          pdfContent = await $typst.pdf({ mainContent: contentRef.current });
+          pdfContent = await compileAsync(contentRef.current);
         } catch (compileError) {
           console.error("Compilation failed during save:", compileError);
           pdfContent = null;
@@ -224,7 +252,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         projectId,
         typPath,
         contentRef.current,
-        pdfContent || undefined,
+        pdfContent || undefined
       );
       setLastSaved(new Date());
       setHasChanges(false);
@@ -236,9 +264,14 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   };
 
   const handleExport = async () => {
-    if (!isTypstReady || !$typst) return;
+    const typstInstance = $typst;
+    if (!typstInstance || !isTypstReady) {
+      return;
+    }
+    if (!typstInstance) return;
+
     try {
-      const data = await $typst.pdf({ mainContent: contentRef.current });
+      const data = await compileAsync(contentRef.current);
       const blob = new Blob([data as unknown as BlobPart], {
         type: "application/pdf",
       });
@@ -275,7 +308,47 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   };
 
   if (isLoading) {
-    return <Loading text="Preparing editor..." fullScreen />;
+    return (
+      <div className="h-screen flex flex-col">
+        <Toolbar
+          key={projectId}
+          projectTitle={projectTitle || "Loading..."}
+          isSaving={false}
+          hasUnsavedChanges={false}
+          lastSaved={null}
+          onSave={() => {}}
+          onExport={() => {}}
+          onBack={() => {}}
+          theme={theme || "light"}
+          toggleTheme={toggleTheme}
+          isCompiling={false}
+          isTypstReady={false}
+          projectId={projectId}
+          user={user}
+          isOwner={false}
+        />
+
+        <div className="flex-1 flex overflow-hidden">
+          <div className="w-1/2 border-r overflow-hidden h-full bg-muted/20">
+            <div className="p-4 space-y-2">
+              <div className="h-4 bg-muted rounded animate-pulse" />
+              <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
+              <div className="h-4 bg-muted rounded animate-pulse w-1/2" />
+              <div className="h-4 bg-muted rounded animate-pulse" />
+              <div className="h-4 bg-muted rounded animate-pulse w-4/5" />
+            </div>
+          </div>
+          <div className="w-1/2 overflow-auto preview-container h-full bg-muted/10">
+            <div className="flex flex-col items-center justify-center h-full gap-4">
+              <div className="animate-spin h-6 w-6 rounded-full border-2 border-b-0 border-primary" />
+              <div className="text-xs text-muted-foreground">
+                Preparing preview...
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -337,6 +410,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
             totalPages={totalPages}
             onScaleChange={setScale}
             onTotalPagesChange={setTotalPages}
+            isTypstLoading={isTypstLoading || !hasCompiledInitialRef.current}
           />
         </div>
       </div>

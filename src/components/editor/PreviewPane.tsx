@@ -16,9 +16,10 @@ interface PreviewPaneProps {
   totalPages: number;
   onScaleChange: (scale: number) => void;
   onTotalPagesChange: (pages: number) => void;
+  isTypstLoading?: boolean;
 }
 
-export const PreviewPane = memo(function PreviewPane({
+const PreviewPane = memo(function PreviewPane({
   content,
   isCompiling,
   error,
@@ -26,6 +27,7 @@ export const PreviewPane = memo(function PreviewPane({
   totalPages,
   onScaleChange,
   onTotalPagesChange,
+  isTypstLoading = false,
 }: PreviewPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -232,6 +234,29 @@ export const PreviewPane = memo(function PreviewPane({
     );
   }
 
+  // Show loading state when compiling or when Typst is loading
+  if (isCompiling || isTypstLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <div className="animate-spin h-6 w-6 rounded-full border-2 border-b-0 border-primary" />
+        <div className="text-xs text-muted-foreground">
+          {isTypstLoading ? "Preparing Typst..." : "Compiling document..."}
+        </div>
+      </div>
+    );
+  }
+
+  // Only show "start typing" message if there's genuinely no content and we're not in initial load
+  if (!content || (typeof content === "string" && content.trim() === "")) {
+    if (!error) {
+      return (
+        <div className="placeholder flex items-center justify-center h-full text-muted-foreground text-sm">
+          Start typing to see your document
+        </div>
+      );
+    }
+  }
+
   return (
     <div className="flex flex-col h-full w-full">
       {/* Toolbar */}
@@ -284,3 +309,5 @@ export const PreviewPane = memo(function PreviewPane({
     </div>
   );
 });
+
+export default PreviewPane;
