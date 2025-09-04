@@ -44,7 +44,6 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     isReady: isTypstReady,
     isLoading: isTypstLoading,
     compileAsync,
-    compileSync,
   } = useTypstGlobal();
 
   const contentRef = useRef("");
@@ -153,21 +152,29 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
       contentRef.current
     ) {
       hasCompiledInitialRef.current = true;
-      setIsCompiling(true);
+      // Defer initial compile to idle time to avoid blocking LCP
+      const start = () => {
+        setIsCompiling(true);
+        compileAsync(contentRef.current)
+          .then((pdf) => {
+            setPreview(pdf);
+            setIsCompiling(false);
+          })
+          .catch((err) => {
+            console.error("Initial compilation failed:", err);
+            setError("Compilation failed");
+            setPreview(null);
+            setIsCompiling(false);
+          });
+      };
 
-      compileSync(contentRef.current)
-        .then((pdf) => {
-          setPreview(pdf);
-          setIsCompiling(false);
-        })
-        .catch((err) => {
-          console.error("Initial compilation failed:", err);
-          setError("Compilation failed");
-          setPreview(null);
-          setIsCompiling(false);
-        });
+      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+        requestIdleCallback(start, { timeout: 1500 });
+      } else {
+        setTimeout(start, 0);
+      }
     }
-  }, [isTypstReady, isContentLoaded, compileSync]);
+  }, [isTypstReady, isContentLoaded, compileAsync]);
 
   const handleChange = (newDoc: string) => {
     if (!canEdit) return; // Prevent editing if user doesn't have permission
@@ -332,7 +339,10 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
             readOnly={!canEdit}
           />
         </div>
-        <div className="w-1/2 overflow-auto preview-container h-full">
+        <div
+          className="w-1/2 overflow-auto preview-container h-full"
+          style={{ contentVisibility: "auto", containIntrinsicSize: "800px" }}
+        >
           <PreviewPane
             content={preview}
             isCompiling={isCompiling}

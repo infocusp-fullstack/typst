@@ -46,7 +46,12 @@ const PreviewPane = memo(function PreviewPane({
   if (pdfUrl) {
     return (
       <div className="h-full w-full overflow-hidden">
-        <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
+        <iframe
+          src={pdfUrl}
+          className="w-full h-full"
+          title="PDF Preview"
+          loading="lazy"
+        />
       </div>
     );
   }
