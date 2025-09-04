@@ -11,8 +11,13 @@ import {
 } from "@/lib/projectService";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Toolbar } from "@/components/editor/Toolbar";
-import EditorPane from "@/components/editor/EditorPane";
-import PreviewPane from "@/components/editor/PreviewPane";
+import dynamic from "next/dynamic";
+const EditorPane = dynamic(() => import("@/components/editor/EditorPane"), {
+  ssr: false,
+});
+const PreviewPane = dynamic(() => import("@/components/editor/PreviewPane"), {
+  ssr: false,
+});
 import { User } from "@supabase/supabase-js";
 
 import {

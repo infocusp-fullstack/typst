@@ -124,7 +124,15 @@ export function TypstProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    initTypst();
+    const start = () => {
+      void initTypst();
+    };
+
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      requestIdleCallback(start, { timeout: 1500 });
+    } else {
+      setTimeout(start, 0);
+    }
   }, []);
 
   const value = {

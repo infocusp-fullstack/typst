@@ -1,6 +1,5 @@
 import { ThemeProvider } from "@/hooks/useTheme";
 import { AuthProvider } from "@/hooks/useAuth";
-import { TypstProvider } from "@/hooks/useTypstProvider";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { DialogProvider } from "@/hooks/useDialog";
@@ -27,10 +26,8 @@ export default function RootLayout({
       <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider>
           <AuthProvider>
-            <TypstProvider>
-              <DialogProvider>{children}</DialogProvider>
-              <Toaster />
-            </TypstProvider>
+            <DialogProvider>{children}</DialogProvider>
+            <Toaster />
           </AuthProvider>
         </ThemeProvider>
       </body>

@@ -3,11 +3,18 @@
 import { memo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Save, Download, Sun, Moon, Share2 } from "lucide-react";
-import { ShareModal } from "./ShareModal";
+import dynamic from "next/dynamic";
 import { User } from "@supabase/supabase-js";
 import { TruncateWithTooltip } from "@/components/ui/TruncateWithTooltip";
 import Link from "next/link";
 import Logo from "@/components/Logo";
+
+const ShareModal = dynamic(
+  () => import("./ShareModal").then((m) => m.ShareModal),
+  {
+    ssr: false,
+  }
+);
 
 export const Toolbar = memo(function Toolbar({
   projectTitle,
