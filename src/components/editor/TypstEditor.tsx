@@ -56,6 +56,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   const [canEdit, setCanEdit] = useState(false);
   const didInitRef = useRef(false);
   const hasCompiledInitialRef = useRef(false);
+  const [isContentLoaded, setIsContentLoaded] = useState(false);
 
   const compileTypst = useCallback(
     async (source: string) => {
@@ -124,6 +125,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         setTypPath(project.typ_path);
         setLastSaved(new Date(project.updated_at));
         setHasChanges(false);
+        setIsContentLoaded(true);
       } catch {
         showToast.error("Failed to load project.");
         router.push("/dashboard");
@@ -137,13 +139,17 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
 
   const debouncedCompile = useDebounce(compileTypst, 300);
 
-  // Watch for Typst readiness and compile once when everything is ready
+  // Trigger a single initial compile once both Typst and content are ready
   useEffect(() => {
-    if (isTypstReady && contentRef.current && !hasCompiledInitialRef.current) {
+    if (
+      !hasCompiledInitialRef.current &&
+      isTypstReady &&
+      isContentLoaded &&
+      contentRef.current
+    ) {
       hasCompiledInitialRef.current = true;
       setIsCompiling(true);
 
-      // Use sync compilation for initial load since Typst should be ready
       compileSync(contentRef.current)
         .then((pdf) => {
           setPreview(pdf);
@@ -156,7 +162,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
           setIsCompiling(false);
         });
     }
-  }, [isTypstReady, compileSync]);
+  }, [isTypstReady, isContentLoaded, compileSync]);
 
   const handleChange = (newDoc: string) => {
     if (!canEdit) return; // Prevent editing if user doesn't have permission

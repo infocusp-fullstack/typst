@@ -51,8 +51,8 @@ const PreviewPane = memo(function PreviewPane({
     );
   }
 
-  // Show loading state when compiling or when Typst is loading
-  if (isCompiling || isTypstLoading) {
+  // Show loading state when Typst is loading or during compile
+  if (isTypstLoading || isCompiling) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <div className="animate-spin h-6 w-6 rounded-full border-2 border-b-0 border-primary" />
