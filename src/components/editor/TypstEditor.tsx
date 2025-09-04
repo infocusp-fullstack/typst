@@ -47,7 +47,6 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   } = useTypstGlobal();
 
   const contentRef = useRef("");
-  const [isLoading, setIsLoading] = useState(true);
   const [preview, setPreview] = useState<PDFContent | null>(null);
   const [projectTitle, setProjectTitle] = useState("");
   const [typPath, setTypPath] = useState("");
@@ -93,8 +92,6 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
 
     const load = async () => {
       try {
-        setIsLoading(true);
-
         // Fetch project meta and permissions in parallel
         const project = await fetchUserProjectById(projectId);
         if (!project) throw new Error("Project not found");
@@ -134,7 +131,6 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         showToast.error("Failed to load project.");
         router.push("/dashboard");
       } finally {
-        setIsLoading(false);
       }
     };
 
@@ -264,49 +260,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     router.push("/dashboard");
   };
 
-  if (isLoading) {
-    return (
-      <div className="h-screen flex flex-col">
-        <Toolbar
-          key={projectId}
-          projectTitle={projectTitle || "Loading..."}
-          isSaving={false}
-          hasUnsavedChanges={false}
-          lastSaved={null}
-          onSave={() => {}}
-          onExport={() => {}}
-          onBack={() => {}}
-          theme={theme || "light"}
-          toggleTheme={toggleTheme}
-          isCompiling={false}
-          isTypstReady={false}
-          projectId={projectId}
-          user={user}
-          isOwner={false}
-        />
-
-        <div className="flex-1 flex overflow-hidden">
-          <div className="w-1/2 border-r overflow-hidden h-full bg-muted/20">
-            <div className="p-4 space-y-2">
-              <div className="h-4 bg-muted rounded animate-pulse" />
-              <div className="h-4 bg-muted rounded animate-pulse w-3/4" />
-              <div className="h-4 bg-muted rounded animate-pulse w-1/2" />
-              <div className="h-4 bg-muted rounded animate-pulse" />
-              <div className="h-4 bg-muted rounded animate-pulse w-4/5" />
-            </div>
-          </div>
-          <div className="w-1/2 overflow-auto preview-container h-full bg-muted/10">
-            <div className="flex flex-col items-center justify-center h-full gap-4">
-              <div className="animate-spin h-6 w-6 rounded-full border-2 border-b-0 border-primary" />
-              <div className="text-xs text-muted-foreground">
-                Preparing preview...
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Always render the layout immediately; fill in content progressively
 
   return (
     <div className="h-screen flex flex-col">
@@ -326,6 +280,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         projectId={projectId}
         user={user}
         isOwner={isOwner}
+        isBusy={isTypstLoading || !hasCompiledInitialRef.current || isCompiling}
       />
 
       <div className="flex-1 flex overflow-hidden">

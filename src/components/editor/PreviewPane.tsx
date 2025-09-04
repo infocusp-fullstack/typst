@@ -56,26 +56,15 @@ const PreviewPane = memo(function PreviewPane({
     );
   }
 
-  // Show loading state when Typst is loading or during compile
+  // Minimal loading indicator is now shown in Toolbar; keep preview area steady
   if (isTypstLoading || isCompiling) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <div className="animate-spin h-6 w-6 rounded-full border-2 border-b-0 border-primary" />
-        <div className="text-xs text-muted-foreground">
-          {isTypstLoading ? "Preparing Typst..." : "Compiling document..."}
-        </div>
-      </div>
-    );
+    return <div className="h-full w-full" />;
   }
 
   // Only show "start typing" message if there's genuinely no content and we're not in initial load
   if (!content || (typeof content === "string" && content.trim() === "")) {
     if (!error) {
-      return (
-        <div className="placeholder flex items-center justify-center h-full text-muted-foreground text-sm">
-          Start typing to see your document
-        </div>
-      );
+      return <div className="h-full w-full" />;
     }
   }
 

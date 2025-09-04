@@ -31,6 +31,7 @@ export const Toolbar = memo(function Toolbar({
   projectId,
   user,
   isOwner,
+  isBusy,
 }: {
   projectTitle?: string;
   isSaving: boolean;
@@ -46,6 +47,7 @@ export const Toolbar = memo(function Toolbar({
   projectId: string;
   user: User;
   isOwner: boolean;
+  isBusy?: boolean;
 }) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
@@ -90,11 +92,16 @@ export const Toolbar = memo(function Toolbar({
           {isSaving && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-current" />
-              Saving...
             </span>
           )}
           {hasUnsavedChanges && (
             <span className="text-xs text-destructive">● Unsaved</span>
+          )}
+
+          {isBusy && (
+            <span className="text-xs text-muted-foreground flex items-center">
+              <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-current" />
+            </span>
           )}
 
           <Button
