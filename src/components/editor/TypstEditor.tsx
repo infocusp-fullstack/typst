@@ -286,7 +286,11 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
       <div className="flex-1 flex overflow-hidden">
         <div className="w-1/2 border-r overflow-hidden h-full">
           <EditorPane
-            key={`${projectId} - ${theme}`}
+            key={
+              canEdit
+                ? `${projectId}-${theme}-edit`
+                : `${projectId}-${theme}-${isContentLoaded ? "loaded" : "init"}`
+            }
             initialContent={contentRef.current}
             theme={theme || "dark"}
             onChange={handleChange}
