@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useAuth } from "@/hooks/useAuth";
 import { Loading } from "@/components/ui/loading";
-import { TypstProvider } from "@/hooks/useTypstProvider";
 
 const TypstEditor = dynamic(() => import("@/components/editor/TypstEditor"), {
   ssr: false,
@@ -39,9 +38,5 @@ export default function EditorPage() {
   }
 
   // Pass the dynamic projectId to the Editor component
-  return (
-    <TypstProvider>
-      <TypstEditor projectId={projectId} user={user} signOut={signOut} />
-    </TypstProvider>
-  );
+  return <TypstEditor projectId={projectId} user={user} signOut={signOut} />;
 }
