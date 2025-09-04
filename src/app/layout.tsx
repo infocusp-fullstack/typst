@@ -3,7 +3,6 @@ import { AuthProvider } from "@/hooks/useAuth";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { DialogProvider } from "@/hooks/useDialog";
-import { TypstProvider } from "@/hooks/useTypstProvider";
 
 export const metadata = {
   title: "Infocusp Resumes",
@@ -27,9 +26,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider>
           <AuthProvider>
-            <TypstProvider>
-              <DialogProvider>{children}</DialogProvider>
-            </TypstProvider>
+            <DialogProvider>{children}</DialogProvider>
             <Toaster />
           </AuthProvider>
         </ThemeProvider>
