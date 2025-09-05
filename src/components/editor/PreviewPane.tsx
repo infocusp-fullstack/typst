@@ -56,12 +56,11 @@ const PreviewPane = memo(function PreviewPane({
     );
   }
 
-  // Minimal loading indicator is now shown in Toolbar; keep preview area steady
   if (isTypstLoading || isCompiling) {
     return <div className="h-full w-full" />;
   }
 
-  // Only show "start typing" message if there's genuinely no content and we're not in initial load
+  // show "start typing" message if there's no content
   if (!content || (typeof content === "string" && content.trim() === "")) {
     if (!error) {
       return (
