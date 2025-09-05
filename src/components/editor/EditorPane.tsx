@@ -1,5 +1,6 @@
 "use client";
 
+import { EditorView } from "@codemirror/view";
 import { useEffect, useRef, useCallback } from "react";
 
 export default function EditorPane({
@@ -16,108 +17,111 @@ export default function EditorPane({
   readOnly?: boolean;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<{ destroy: () => void } | null>(null);
+  const viewRef = useRef<EditorView | null>(null);
   const didInitRef = useRef(false);
 
   const createEditorTheme = useCallback(() => {
     const isDark = theme === "dark";
 
-    return {
-      "&": {
-        height: "100%",
-        fontSize: "14px",
-        backgroundColor: isDark ? "#272822" : "#ffffff",
-        color: isDark ? "#f8f8f2" : "#111827",
+    return EditorView.theme(
+      {
+        "&": {
+          height: "100%",
+          fontSize: "14px",
+          backgroundColor: isDark ? "#272822" : "#ffffff",
+          color: isDark ? "#f8f8f2" : "#111827",
+        },
+        ".cm-scroller": {
+          fontFamily: "Fira Code, Monaco, Consolas, monospace",
+          padding: "1rem",
+        },
+        ".cm-content": {
+          padding: "0",
+          caretColor: isDark ? "#f8f8f0" : "#3b82f6",
+        },
+        ".cm-line": {
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+        },
+        ".cm-focused": {
+          outline: "none",
+        },
+        "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
+          backgroundColor: isDark ? "#49483E !important" : "#D6D6D6 !important",
+        },
+        ".cm-lineNumbers": {
+          color: isDark ? "#75715e" : "#9ca3af",
+        },
+        ".cm-lineNumbers .cm-gutterElement": {
+          color: isDark ? "#75715e" : "#9ca3af",
+        },
+        ".cm-gutters": {
+          backgroundColor: isDark ? "#272822" : "#f9fafb",
+          borderRight: isDark ? "1px solid #3E3D32" : "1px solid #e5e7eb",
+        },
+        ".cm-activeLine": {
+          backgroundColor: isDark ? "#3E3D32" : "#f3f4f6",
+        },
+        ".cm-activeLineGutter": {
+          backgroundColor: isDark ? "#3E3D32" : "#f3f4f6",
+        },
+        ".cm-strong": {
+          fontWeight: "bold",
+          color: isDark ? "#f92672" : "#d81159",
+        },
+        ".cm-em": {
+          fontStyle: "italic",
+          color: isDark ? "#fd971f" : "#c2410c",
+        },
+        ".cm-heading": {
+          fontWeight: "bold",
+          color: isDark ? "#a6e22e" : "#15803d",
+        },
+        ".cm-keyword": {
+          color: isDark ? "#66d9ef" : "#2563eb",
+        },
+        ".cm-string": {
+          color: isDark ? "#e6db74" : "#b45309",
+        },
+        ".cm-comment": {
+          color: isDark ? "#75715e" : "#6b7280",
+          fontStyle: "italic",
+        },
+        ".cm-variableName": {
+          color: isDark ? "#f8f8f2" : "#111827",
+        },
       },
-      ".cm-scroller": {
-        fontFamily: "Fira Code, Monaco, Consolas, monospace",
-        padding: "1rem",
-      },
-      ".cm-content": {
-        padding: "0",
-        caretColor: isDark ? "#f8f8f0" : "#3b82f6",
-      },
-      ".cm-line": {
-        whiteSpace: "pre-wrap",
-        wordBreak: "break-word",
-      },
-      ".cm-focused": {
-        outline: "none",
-      },
-      "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
-        backgroundColor: isDark ? "#49483E !important" : "#D6D6D6 !important",
-      },
-      ".cm-lineNumbers": {
-        color: isDark ? "#75715e" : "#9ca3af",
-      },
-      ".cm-lineNumbers .cm-gutterElement": {
-        color: isDark ? "#75715e" : "#9ca3af",
-      },
-      ".cm-gutters": {
-        backgroundColor: isDark ? "#272822" : "#f9fafb",
-        borderRight: isDark ? "1px solid #3E3D32" : "1px solid #e5e7eb",
-      },
-      ".cm-activeLine": {
-        backgroundColor: isDark ? "#3E3D32" : "#f3f4f6",
-      },
-      ".cm-activeLineGutter": {
-        backgroundColor: isDark ? "#3E3D32" : "#f3f4f6",
-      },
-      ".cm-strong": {
-        fontWeight: "bold",
-        color: isDark ? "#f92672" : "#d81159",
-      },
-      ".cm-em": {
-        fontStyle: "italic",
-        color: isDark ? "#fd971f" : "#c2410c",
-      },
-      ".cm-heading": {
-        fontWeight: "bold",
-        color: isDark ? "#a6e22e" : "#15803d",
-      },
-      ".cm-keyword": {
-        color: isDark ? "#66d9ef" : "#2563eb",
-      },
-      ".cm-string": {
-        color: isDark ? "#e6db74" : "#b45309",
-      },
-      ".cm-comment": {
-        color: isDark ? "#75715e" : "#6b7280",
-        fontStyle: "italic",
-      },
-      ".cm-variableName": {
-        color: isDark ? "#f8f8f2" : "#111827",
-      },
-    };
+      { dark: isDark }
+    );
   }, [theme]);
 
   useEffect(() => {
     if (!editorRef.current || didInitRef.current) return;
 
-    const loadEditor = async () => {
-      try {
-        const [
-          { EditorView, keymap, lineNumbers },
-          { EditorState },
-          { history, historyKeymap, indentWithTab, defaultKeymap, undo, redo },
-          { typstSyntax },
-        ] = await Promise.all([
-          import("@codemirror/view"),
-          import("@codemirror/state"),
-          import("@codemirror/commands"),
-          import("@/hooks/typystSyntax"),
-        ]);
+    Promise.all([
+      import("@codemirror/view"),
+      import("@codemirror/state"),
+      import("@codemirror/commands"),
+      import("@/hooks/typystSyntax"),
+    ])
+      .then(([viewPkg, statePkg, commandsPkg, typstPkg]) => {
+        const { EditorView, keymap, lineNumbers } = viewPkg;
+        const { EditorState } = statePkg;
+        const {
+          history,
+          historyKeymap,
+          indentWithTab,
+          defaultKeymap,
+          undo,
+          redo,
+        } = commandsPkg;
+        const { typstSyntax } = typstPkg;
 
-        const updateListener = EditorView.updateListener.of(
-          (update: {
-            docChanged: boolean;
-            state: { doc: { toString: () => string } };
-          }) => {
-            if (update.docChanged && !readOnly) {
-              onChange(update.state.doc.toString());
-            }
+        const updateListener = EditorView.updateListener.of((update) => {
+          if (update.docChanged && !readOnly) {
+            onChange(update.state.doc.toString());
           }
-        );
+        });
 
         const saveKeymap = {
           key: "Mod-s",
@@ -139,8 +143,6 @@ export default function EditorPane({
               { key: "Mod-Shift-z", run: redo },
             ];
 
-        const editorTheme = createEditorTheme();
-
         const state = EditorState.create({
           doc: initialContent,
           extensions: [
@@ -149,25 +151,22 @@ export default function EditorPane({
             typstSyntax(),
             keymap.of([...readOnlyKeymap, saveKeymap]),
             updateListener,
-            EditorView.theme(editorTheme, { dark: theme === "dark" }),
+            createEditorTheme(),
             EditorView.lineWrapping,
             readOnly ? EditorView.editable.of(false) : [],
           ],
         });
 
-        const view = new EditorView({
+        viewRef.current = new EditorView({
           state,
           parent: editorRef.current!,
         });
 
-        viewRef.current = view;
         didInitRef.current = true;
-      } catch (error) {
+      })
+      .catch((error) => {
         console.error("Failed to load editor:", error);
-      }
-    };
-
-    loadEditor();
+      });
 
     return () => {
       if (viewRef.current) {
@@ -182,10 +181,6 @@ export default function EditorPane({
     <div
       ref={editorRef}
       className={`h-full w-full ${readOnly ? "cursor-not-allowed" : ""}`}
-      style={{
-        minHeight: "400px",
-        backgroundColor: theme === "dark" ? "#272822" : "#ffffff",
-      }}
       title={readOnly ? "Read-only mode" : ""}
     />
   );

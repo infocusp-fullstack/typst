@@ -64,7 +64,11 @@ const PreviewPane = memo(function PreviewPane({
   // Only show "start typing" message if there's genuinely no content and we're not in initial load
   if (!content || (typeof content === "string" && content.trim() === "")) {
     if (!error) {
-      return <div className="h-full w-full" />;
+      return (
+        <div className="placeholder flex items-center justify-center h-full text-muted-foreground text-sm">
+          Start typing to see your document
+        </div>
+      );
     }
   }
 

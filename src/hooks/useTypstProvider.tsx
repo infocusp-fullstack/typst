@@ -15,7 +15,6 @@ interface TypstContextType {
   error: string | null;
   isLoading: boolean;
   compileAsync: (source: string) => Promise<Uint8Array>;
-  compileSync: (source: string) => Promise<Uint8Array>;
 }
 
 const TypstContext = createContext<TypstContextType | undefined>(undefined);
@@ -26,21 +25,8 @@ export function TypstProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const typstRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
 
-  // Synchronous compilation for immediate results (blocks main thread)
-  const compileSync = useCallback(
-    async (source: string): Promise<Uint8Array> => {
-      if (!typstRef.current) {
-        throw new Error("Typst not initialized");
-      }
-      return await typstRef.current.pdf({ mainContent: source });
-    },
-    []
-  );
-
-  // Async compilation function that doesn't block the main thread
   const compileAsync = useCallback(
     async (source: string): Promise<Uint8Array> => {
-      // Wait for Typst to be ready if it's not yet
       if (!typstRef.current) {
         // Wait up to 5 seconds for Typst to initialize
         for (let i = 0; i < 50; i++) {
@@ -141,7 +127,6 @@ export function TypstProvider({ children }: { children: React.ReactNode }) {
     error,
     isLoading,
     compileAsync,
-    compileSync,
   };
 
   return (

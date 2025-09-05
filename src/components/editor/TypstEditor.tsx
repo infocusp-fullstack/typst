@@ -298,10 +298,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
             readOnly={!canEdit}
           />
         </div>
-        <div
-          className="w-1/2 overflow-auto preview-container h-full"
-          style={{ contentVisibility: "auto", containIntrinsicSize: "800px" }}
-        >
+        <div className="w-1/2 overflow-auto preview-container h-full">
           <PreviewPane
             content={preview}
             isCompiling={isCompiling}
