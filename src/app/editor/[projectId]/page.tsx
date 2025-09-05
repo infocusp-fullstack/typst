@@ -4,12 +4,14 @@ import { useParams } from "next/navigation";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-const TypstEditor = dynamic(() => import("@/components/editor/TypstEditor"), {
-  ssr: false,
-  loading: () => <Loading text="Opening editor..." fullScreen />,
-});
 import { useAuth } from "@/hooks/useAuth";
 import { Loading } from "@/components/ui/loading";
+import { TypstProvider } from "@/hooks/useTypstProvider";
+
+const TypstEditor = dynamic(() => import("@/components/editor/TypstEditor"), {
+  ssr: false,
+  loading: () => <Loading text="Loading editor..." fullScreen />,
+});
 
 export default function EditorPage() {
   const params = useParams();
@@ -37,5 +39,9 @@ export default function EditorPage() {
   }
 
   // Pass the dynamic projectId to the Editor component
-  return <TypstEditor projectId={projectId} user={user} signOut={signOut} />;
+  return (
+    <TypstProvider>
+      <TypstEditor projectId={projectId} user={user} signOut={signOut} />
+    </TypstProvider>
+  );
 }

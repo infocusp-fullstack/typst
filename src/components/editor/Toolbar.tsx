@@ -3,11 +3,18 @@
 import { memo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Save, Download, Sun, Moon, Share2 } from "lucide-react";
-import { ShareModal } from "./ShareModal";
+import dynamic from "next/dynamic";
 import { User } from "@supabase/supabase-js";
 import { TruncateWithTooltip } from "@/components/ui/TruncateWithTooltip";
 import Link from "next/link";
 import Logo from "@/components/Logo";
+
+const ShareModal = dynamic(
+  () => import("./ShareModal").then((m) => m.ShareModal),
+  {
+    ssr: false,
+  }
+);
 
 export const Toolbar = memo(function Toolbar({
   projectTitle,
@@ -24,6 +31,7 @@ export const Toolbar = memo(function Toolbar({
   projectId,
   user,
   isOwner,
+  isBusy,
 }: {
   projectTitle?: string;
   isSaving: boolean;
@@ -39,6 +47,7 @@ export const Toolbar = memo(function Toolbar({
   projectId: string;
   user: User;
   isOwner: boolean;
+  isBusy?: boolean;
 }) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
@@ -51,7 +60,7 @@ export const Toolbar = memo(function Toolbar({
         </Button>
 
         <div className="flex items-center gap-2">
-          <Link href="/" prefetch className="flex items-center gap-2">
+          <Link href="/" prefetch={false} className="flex items-center gap-2">
             <Logo size="sm" />
             <span className="font-semibold">Infocusp Resumes</span>
           </Link>
@@ -83,11 +92,16 @@ export const Toolbar = memo(function Toolbar({
           {isSaving && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-current" />
-              Saving...
             </span>
           )}
           {hasUnsavedChanges && (
             <span className="text-xs text-destructive">● Unsaved</span>
+          )}
+
+          {isBusy && (
+            <span className="text-xs text-muted-foreground flex items-center">
+              <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-current" />
+            </span>
           )}
 
           <Button
