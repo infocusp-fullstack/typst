@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/hooks/useTheme";
-import { useTypstGlobal } from "@/hooks/useTypstProvider";
 import {
   fetchUserProjectById,
   loadProjectFile,
@@ -28,6 +27,7 @@ import {
 import { PDFContent } from "@/types";
 import { useDialog } from "@/hooks/useDialog";
 import { showToast } from "@/lib/toast";
+import { compileFast, loadTypstFast } from "@/lib/typstRuntime";
 
 interface TypstEditorProps {
   projectId: string;
@@ -39,12 +39,8 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   const { confirm } = useDialog();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
-  const {
-    $typst,
-    isReady: isTypstReady,
-    isLoading: isTypstLoading,
-    compileAsync,
-  } = useTypstGlobal();
+  const [isTypstReady, setIsTypstReady] = useState(false);
+  const [isTypstLoading, setIsTypstLoading] = useState(true);
 
   const contentRef = useRef("");
   const [preview, setPreview] = useState<PDFContent | null>(null);
@@ -72,8 +68,8 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
       setError(null);
 
       try {
-        // Use async compilation for user edits to keep UI responsive
-        const pdf = await compileAsync(source);
+        // Fast compile using the shared singleton
+        const pdf = await compileFast(source);
         setPreview(pdf);
       } catch (err) {
         console.error("Compilation failed:", err);
@@ -83,7 +79,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         setIsCompiling(false);
       }
     },
-    [$typst, isTypstReady]
+    [isTypstReady]
   );
 
   useEffect(() => {
@@ -139,6 +135,27 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
 
   const debouncedCompile = useDebounce(compileTypst, 300);
 
+  // Initialize Typst singleton immediately (no idle delay)
+  useEffect(() => {
+    let isMounted = true;
+    setIsTypstLoading(true);
+    loadTypstFast()
+      .then(() => {
+        if (!isMounted) return;
+        setIsTypstReady(true);
+        setIsTypstLoading(false);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setIsTypstReady(false);
+        setIsTypstLoading(false);
+        showToast.error("Failed to initialize Typst.");
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   // Trigger a single initial compile once both Typst and content are ready
   useEffect(() => {
     if (
@@ -148,29 +165,21 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
       contentRef.current
     ) {
       hasCompiledInitialRef.current = true;
-      // Defer initial compile to idle time to avoid blocking LCP
-      const start = () => {
-        setIsCompiling(true);
-        compileAsync(contentRef.current)
-          .then((pdf) => {
-            setPreview(pdf);
-            setIsCompiling(false);
-          })
-          .catch((err) => {
-            console.error("Initial compilation failed:", err);
-            setError("Compilation failed");
-            setPreview(null);
-            setIsCompiling(false);
-          });
-      };
-
-      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-        requestIdleCallback(start, { timeout: 1500 });
-      } else {
-        setTimeout(start, 0);
-      }
+      // Compile immediately once ready for faster first preview
+      setIsCompiling(true);
+      compileFast(contentRef.current)
+        .then((pdf) => {
+          setPreview(pdf);
+          setIsCompiling(false);
+        })
+        .catch((err) => {
+          console.error("Initial compilation failed:", err);
+          setError("Compilation failed");
+          setPreview(null);
+          setIsCompiling(false);
+        });
     }
-  }, [isTypstReady, isContentLoaded, compileAsync]);
+  }, [isTypstReady, isContentLoaded]);
 
   const handleChange = (newDoc: string) => {
     if (!canEdit) return; // Prevent editing if user doesn't have permission
@@ -188,17 +197,12 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
 
       // Always compile fresh content for save to ensure we have the latest version
       let pdfContent: PDFContent | null = null;
-      const typstInstance = $typst;
-      if (!typstInstance || !isTypstReady) {
-        return;
-      }
-      if (typstInstance) {
-        try {
-          pdfContent = await compileAsync(contentRef.current);
-        } catch (compileError) {
-          console.error("Compilation failed during save:", compileError);
-          pdfContent = null;
-        }
+      if (!isTypstReady) return;
+      try {
+        pdfContent = await compileFast(contentRef.current);
+      } catch (compileError) {
+        console.error("Compilation failed during save:", compileError);
+        pdfContent = null;
       }
 
       await saveProjectFile(
@@ -217,14 +221,10 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   };
 
   const handleExport = async () => {
-    const typstInstance = $typst;
-    if (!typstInstance || !isTypstReady) {
-      return;
-    }
-    if (!typstInstance) return;
+    if (!isTypstReady) return;
 
     try {
-      const data = await compileAsync(contentRef.current);
+      const data = await compileFast(contentRef.current);
       const blob = new Blob([data as unknown as BlobPart], {
         type: "application/pdf",
       });
