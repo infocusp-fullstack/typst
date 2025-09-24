@@ -65,6 +65,8 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     async (source: string) => {
       if (!source) {
         setPreview(null);
+        setIsCompiling(false);
+        setError(null);
         return;
       }
 
@@ -150,6 +152,12 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
       hasCompiledInitialRef.current = true;
       // Defer initial compile to idle time to avoid blocking LCP
       const start = () => {
+        if (!contentRef.current.trim()) {
+          setPreview(null);
+          setIsCompiling(false);
+          return;
+        }
+
         setIsCompiling(true);
         compileAsync(contentRef.current)
           .then((pdf) => {
@@ -180,7 +188,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     debouncedCompile(newDoc);
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!typPath || !contentRef.current || !canEdit) return;
 
     try {
@@ -214,7 +222,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [typPath, canEdit, isTypstReady, compileAsync, projectId]);
 
   const handleExport = async () => {
     const typstInstance = $typst;

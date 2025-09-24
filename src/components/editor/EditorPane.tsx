@@ -19,6 +19,16 @@ export default function EditorPane({
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const didInitRef = useRef(false);
+  const onSaveRef = useRef(onSave);
+  const onChangeRef = useRef(onChange);
+
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const createEditorTheme = useCallback(() => {
     const isDark = theme === "dark";
@@ -119,7 +129,7 @@ export default function EditorPane({
 
         const updateListener = EditorView.updateListener.of((update) => {
           if (update.docChanged && !readOnly) {
-            onChange(update.state.doc.toString());
+            onChangeRef.current(update.state.doc.toString());
           }
         });
 
@@ -127,7 +137,7 @@ export default function EditorPane({
           key: "Mod-s",
           run: () => {
             if (!readOnly) {
-              onSave();
+              onSaveRef.current();
             }
             return true;
           },
