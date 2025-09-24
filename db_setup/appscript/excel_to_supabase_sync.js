@@ -1,7 +1,6 @@
 /******** CONFIG ********/
-const SUPABASE_URL = "https://ywywmoihhzrqelcsuxfn.supabase.co";
-const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3eXdtb2loaHpycWVsY3N1eGZuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NjQ0NDQwMSwiZXhwIjoyMDcyMDIwNDAxfQ.TTEsUDT8xQpLLlfoKWPenFN_qYxHNvQLX3a8xPXcWpg";
+const SUPABASE_URL = "";
+const SUPABASE_KEY = "";
 
 /******** MAIN SYNC FUNCTION ********/
 function supabaseSync() {
