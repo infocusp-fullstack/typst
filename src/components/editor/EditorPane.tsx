@@ -1,19 +1,9 @@
 "use client";
 
+import { EditorView } from "@codemirror/view";
 import { useEffect, useRef, useCallback } from "react";
-import { EditorView, keymap, lineNumbers } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
-import {
-  history,
-  historyKeymap,
-  indentWithTab,
-  defaultKeymap,
-  undo,
-  redo,
-} from "@codemirror/commands";
-import { typstSyntax } from "@/hooks/typystSyntax";
 
-export function EditorPane({
+export default function EditorPane({
   initialContent,
   theme,
   onChange,
@@ -28,6 +18,17 @@ export function EditorPane({
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
+  const didInitRef = useRef(false);
+  const onSaveRef = useRef(onSave);
+  const onChangeRef = useRef(onChange);
+
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
+
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
 
   const createEditorTheme = useCallback(() => {
     const isDark = theme === "dark";
@@ -74,28 +75,26 @@ export function EditorPane({
         ".cm-activeLineGutter": {
           backgroundColor: isDark ? "#3E3D32" : "#f3f4f6",
         },
-
-        // Custom syntax highlighting colors (Monokai)
         ".cm-strong": {
           fontWeight: "bold",
-          color: isDark ? "#f92672" : "#d81159", // pinkish
+          color: isDark ? "#f92672" : "#d81159",
         },
         ".cm-em": {
           fontStyle: "italic",
-          color: isDark ? "#fd971f" : "#c2410c", // orange
+          color: isDark ? "#fd971f" : "#c2410c",
         },
         ".cm-heading": {
           fontWeight: "bold",
-          color: isDark ? "#a6e22e" : "#15803d", // green
+          color: isDark ? "#a6e22e" : "#15803d",
         },
         ".cm-keyword": {
-          color: isDark ? "#66d9ef" : "#2563eb", // blue
+          color: isDark ? "#66d9ef" : "#2563eb",
         },
         ".cm-string": {
-          color: isDark ? "#e6db74" : "#b45309", // yellow
+          color: isDark ? "#e6db74" : "#b45309",
         },
         ".cm-comment": {
-          color: isDark ? "#75715e" : "#6b7280", // gray
+          color: isDark ? "#75715e" : "#6b7280",
           fontStyle: "italic",
         },
         ".cm-variableName": {
@@ -107,66 +106,91 @@ export function EditorPane({
   }, [theme]);
 
   useEffect(() => {
-    if (!editorRef.current) return;
+    if (!editorRef.current || didInitRef.current) return;
 
-    const updateListener = EditorView.updateListener.of((update) => {
-      if (update.docChanged && !readOnly) {
-        onChange(update.state.doc.toString());
-      }
-    });
-
-    const saveKeymap = {
-      key: "Mod-s",
-      run: () => {
-        if (!readOnly) {
-          onSave();
-        }
-        return true;
-      },
-    };
-
-    // Disable editing in read-only mode
-    const readOnlyKeymap = readOnly
-      ? []
-      : [
-          ...historyKeymap,
-          ...defaultKeymap,
+    Promise.all([
+      import("@codemirror/view"),
+      import("@codemirror/state"),
+      import("@codemirror/commands"),
+      import("@/hooks/typystSyntax"),
+    ])
+      .then(([viewPkg, statePkg, commandsPkg, typstPkg]) => {
+        const { EditorView, keymap, lineNumbers } = viewPkg;
+        const { EditorState } = statePkg;
+        const {
+          history,
+          historyKeymap,
           indentWithTab,
-          { key: "Mod-z", run: undo },
-          { key: "Mod-Shift-z", run: redo },
-        ];
+          defaultKeymap,
+          undo,
+          redo,
+        } = commandsPkg;
+        const { typstSyntax } = typstPkg;
 
-    const state = EditorState.create({
-      doc: initialContent,
-      extensions: [
-        lineNumbers(),
-        history(),
-        typstSyntax(),
-        keymap.of([...readOnlyKeymap, saveKeymap]),
-        updateListener,
-        createEditorTheme(),
-        EditorView.lineWrapping,
-        // Disable editing in read-only mode
-        readOnly ? EditorView.editable.of(false) : [],
-      ],
-    });
+        const updateListener = EditorView.updateListener.of((update) => {
+          if (update.docChanged && !readOnly) {
+            onChangeRef.current(update.state.doc.toString());
+          }
+        });
 
-    const view = new EditorView({
-      state,
-      parent: editorRef.current,
-    });
+        const saveKeymap = {
+          key: "Mod-s",
+          run: () => {
+            if (!readOnly) {
+              onSaveRef.current();
+            }
+            return true;
+          },
+        };
 
-    viewRef.current = view;
+        const readOnlyKeymap = readOnly
+          ? []
+          : [
+              ...historyKeymap,
+              ...defaultKeymap,
+              indentWithTab,
+              { key: "Mod-z", run: undo },
+              { key: "Mod-Shift-z", run: redo },
+            ];
+
+        const state = EditorState.create({
+          doc: initialContent,
+          extensions: [
+            lineNumbers(),
+            history(),
+            typstSyntax(),
+            keymap.of([...readOnlyKeymap, saveKeymap]),
+            updateListener,
+            createEditorTheme(),
+            EditorView.lineWrapping,
+            readOnly ? EditorView.editable.of(false) : [],
+          ],
+        });
+
+        viewRef.current = new EditorView({
+          state,
+          parent: editorRef.current!,
+        });
+
+        didInitRef.current = true;
+      })
+      .catch((error) => {
+        console.error("Failed to load editor:", error);
+      });
 
     return () => {
-      view.destroy();
+      if (viewRef.current) {
+        viewRef.current.destroy();
+        viewRef.current = null;
+        didInitRef.current = false;
+      }
     };
   }, [theme, readOnly]);
 
   return (
     <div
       ref={editorRef}
-      className={`h-full ${readOnly ? "cursor-not-allowed" : ""}`}
+      className={`h-full w-full ${readOnly ? "cursor-not-allowed" : ""}`}
       title={readOnly ? "Read-only mode" : ""}
     />
   );
