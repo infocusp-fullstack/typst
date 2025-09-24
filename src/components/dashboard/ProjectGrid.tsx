@@ -13,6 +13,7 @@ interface ProjectGridProps {
   ) => void;
   currentUser: User;
   isCXO: boolean;
+  isDeptLeader: boolean;
   onRenameRequest: (projectId: string, currentTitle: string) => void;
 }
 
@@ -23,6 +24,7 @@ const ProjectGrid = React.memo(
     onDeleteProject,
     currentUser,
     isCXO,
+    isDeptLeader,
     onRenameRequest,
   }: ProjectGridProps) => {
     return (
@@ -41,6 +43,7 @@ const ProjectGrid = React.memo(
             }
             currentUser={currentUser}
             isCXO={isCXO}
+            isDeptLeader={isDeptLeader}
             onRename={() => onRenameRequest(project.id, project.title)}
           />
         ))}

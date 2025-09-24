@@ -42,6 +42,7 @@ interface ProjectListProps {
   ) => void;
   currentUser: User;
   isCXO: boolean;
+  isDeptLeader: boolean;
   onRenameRequest: (projectId: string, currentTitle: string) => void;
 }
 
@@ -62,6 +63,7 @@ const ProjectList = React.memo(
     onDeleteProject,
     currentUser,
     isCXO,
+    isDeptLeader,
     onRenameRequest,
   }: ProjectListProps) => {
     const [shareModalOpen, setShareModalOpen] = useState(false);
@@ -76,7 +78,11 @@ const ProjectList = React.memo(
           (t) => currentUser.id === t.shared_with,
         );
         const canDelete = isCXO || isOwner;
-        const canRename = isCXO || isOwner || !!isSharedWith;
+        const canRename =
+          isCXO ||
+          isOwner ||
+          !!isSharedWith ||
+          (isDeptLeader && !isOwner && !isSharedWith);
         const thumbnailUrl = project.thumbnail_path
           ? `${getThumbnailUrl(project.thumbnail_path)}?v=${project.updated_at}`
           : null;
@@ -230,6 +236,7 @@ const ProjectList = React.memo(
       projects,
       currentUser.id,
       isCXO,
+      isDeptLeader,
       onDeleteProject,
       onRenameRequest,
       shareModalOpen,

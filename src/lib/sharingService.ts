@@ -50,6 +50,42 @@ export async function isCXOByEmail(email?: string | null): Promise<boolean> {
   }
 }
 
+export async function isDeptLeaderByEmail(
+  email?: string | null
+): Promise<boolean> {
+  try {
+    if (!email) return false;
+    const supabase = getAdminClient();
+    const { data, error } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("leader_email", email)
+      .maybeSingle();
+    if (error) return false;
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
+export async function isDeptLeaderByProjectAndEmail(
+  project_id: string,
+  email?: string | null
+): Promise<boolean> {
+  try {
+    if (!email) return false;
+    const supabase = getAdminClient();
+    const { data, error } = await supabase.rpc("is_dept_leader_of_project", {
+      project_uuid: project_id,
+      email_input: email,
+    });
+    if (error) return false;
+    return !!data;
+  } catch {
+    return false;
+  }
+}
+
 // Share a project with another user
 export async function shareProject(
   projectId: string,
@@ -58,7 +94,7 @@ export async function shareProject(
   updatedPermission: SharePermission
 ): Promise<ProjectShare> {
   try {
-    const supabase = await getAdminClient();
+    const supabase = getAdminClient();
 
     const {
       data: { user },
@@ -263,7 +299,22 @@ export async function canEditProject(
       .eq("permission", "edit")
       .maybeSingle();
 
-    return !!share;
+    if (share) return true;
+
+    // Check if user is CXO
+    const { data: userData } = await supabase.auth.admin.getUserById(userId);
+    const userEmail = userData.user?.email;
+    const isCXO = await isCXOByEmail(userEmail);
+    if (isCXO) return true;
+
+    // Check if user is dept leader of this project
+    // Use the helper function
+    const isLeader = await supabase.rpc("is_dept_leader_of_project", {
+      project_uuid: projectId,
+      email_input: userEmail,
+    });
+
+    return !!isLeader;
   } catch {
     return false;
   }
@@ -299,7 +350,21 @@ export async function canViewProject(
       .eq("shared_with", userId)
       .maybeSingle();
 
-    return !!share;
+    if (share) return true;
+
+    // Check if user is CXO
+    const { data: userData } = await supabase.auth.admin.getUserById(userId);
+    const userEmail = userData.user?.email;
+    const isCXO = await isCXOByEmail(userEmail);
+    if (isCXO) return true;
+
+    // Check if user is dept leader of this project
+    const isLeader = await supabase.rpc("is_dept_leader_of_project", {
+      project_uuid: projectId,
+      email_input: userEmail,
+    });
+
+    return !!isLeader;
   } catch {
     return false;
   }

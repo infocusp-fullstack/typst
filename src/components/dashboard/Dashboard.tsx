@@ -23,7 +23,7 @@ import { useInfiniteScroll } from "@/hooks/useInfininiteScroll";
 import { NewDocumentCard } from "@/components/dashboard/NewDocumentCard";
 import { RenameModal } from "@/components/dashboard/RenameModal";
 import { FilterType, Template } from "@/types";
-import { isCXOByEmail } from "@/lib/sharingService";
+import { isCXOByEmail, isDeptLeaderByEmail } from "@/lib/sharingService";
 import { useDialog } from "@/hooks/useDialog";
 import { showToast } from "@/lib/toast";
 
@@ -81,6 +81,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filter, setFilter] = useState<FilterType>("owned");
   const [isCXO, setIsCXO] = useState(false);
+  const [isDeptLeader, setIsDeptLeader] = useState(false);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [renameModal, setRenameModal] = useState<{
     isOpen: boolean;
@@ -131,6 +132,15 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         setIsCXO(false);
       }
 
+      // Check dept leader status
+      try {
+        const deptLeaderStatus = await isDeptLeaderByEmail(user.email);
+        setIsDeptLeader(deptLeaderStatus);
+      } catch (error) {
+        console.error("Error checking dept leader status:", error);
+        setIsDeptLeader(false);
+      }
+
       // Load view mode preference
       const savedView = localStorage.getItem(getViewModeKey()) as
         | "grid"
@@ -145,7 +155,8 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         savedFilter &&
         (savedFilter === "owned" ||
           savedFilter === "shared" ||
-          savedFilter === "all")
+          savedFilter === "all" ||
+          savedFilter === "dept")
       ) {
         setFilter(savedFilter);
       }
@@ -430,6 +441,8 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         return "Shared with me";
       case "all":
         return "All resumes";
+      case "dept":
+        return "My Dept";
       default:
         return "Recent documents";
     }
@@ -511,6 +524,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                     onFilterChange={handleFilterChange}
                     user={user}
                     isCXO={isCXO}
+                    isDeptLeader={isDeptLeader}
                   />
 
                   <ViewToggle view={viewMode} onViewChange={handleViewChange} />
@@ -548,6 +562,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                     onDeleteProject={handleDeleteProject}
                     currentUser={user}
                     isCXO={isCXO}
+                    isDeptLeader={isDeptLeader}
                     onRenameRequest={openRenameModal}
                   />
                 ) : (
@@ -557,6 +572,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
                     onDeleteProject={handleDeleteProject}
                     currentUser={user}
                     isCXO={isCXO}
+                    isDeptLeader={isDeptLeader}
                     onRenameRequest={openRenameModal}
                   />
                 )}

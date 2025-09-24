@@ -49,7 +49,7 @@ export type ProjectWithShares = Project & {
 
 export type SharePermission = "read" | "edit";
 
-export type FilterType = "owned" | "shared" | "all";
+export type FilterType = "owned" | "shared" | "all" | "dept";
 
 // Type for PDF content
 export type PDFContent = Uint8Array;

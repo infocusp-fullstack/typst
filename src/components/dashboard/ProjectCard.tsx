@@ -28,11 +28,19 @@ interface ProjectCardProps {
   onDelete: () => void;
   currentUser: User;
   isCXO: boolean;
+  isDeptLeader: boolean;
   onRename: () => void;
 }
 
 const ProjectCard = React.memo(
-  ({ project, onDelete, currentUser, isCXO, onRename }: ProjectCardProps) => {
+  ({
+    project,
+    onDelete,
+    currentUser,
+    isCXO,
+    isDeptLeader,
+    onRename,
+  }: ProjectCardProps) => {
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
     const [canDelete, setCanDelete] = useState(false);
     const [canRename, setCanRename] = useState(false);
@@ -54,12 +62,25 @@ const ProjectCard = React.memo(
     // Check permissions
     useEffect(() => {
       setCanDelete(isCXO || isOwner);
-      setCanRename(isCXO || isOwner || isSharedWith);
+      setCanRename(
+        isCXO ||
+          isOwner ||
+          isSharedWith ||
+          (isDeptLeader && !isOwner && !isSharedWith),
+      );
+
       const url = project.thumbnail_path
         ? `${getThumbnailUrl(project.thumbnail_path)}?v=${project.updated_at}`
         : null;
       setThumbnailUrl(url);
-    }, [project.id, currentUser.id, isOwner]);
+    }, [
+      project.id,
+      currentUser.id,
+      isOwner,
+      isCXO,
+      isSharedWith,
+      isDeptLeader,
+    ]);
 
     return (
       <>

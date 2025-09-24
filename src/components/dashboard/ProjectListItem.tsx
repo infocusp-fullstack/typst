@@ -27,6 +27,7 @@ interface ProjectListItemProps {
   isNavigating?: boolean;
   currentUser: User;
   isCXO: boolean;
+  isDeptLeader: boolean;
   onRename: () => void;
 }
 
@@ -38,6 +39,7 @@ const ProjectListItem = React.memo(
     isNavigating = false,
     currentUser,
     isCXO,
+    isDeptLeader,
     onRename,
   }: ProjectListItemProps) => {
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
@@ -62,12 +64,25 @@ const ProjectListItem = React.memo(
     // Check permissions
     useEffect(() => {
       setCanDelete(isCXO || isOwner);
-      setCanRename(isCXO || isOwner || isSharedWith);
+      setCanRename(
+        isCXO ||
+          isOwner ||
+          isSharedWith ||
+          (isDeptLeader && !isOwner && !isSharedWith),
+      );
+
       const url = project.thumbnail_path
         ? `${getThumbnailUrl(project.thumbnail_path)}?v=${project.updated_at}`
         : null;
       setThumbnailUrl(url);
-    }, [project.id, currentUser.id, isOwner]);
+    }, [
+      project.id,
+      currentUser.id,
+      isOwner,
+      isCXO,
+      isSharedWith,
+      isDeptLeader,
+    ]);
 
     return (
       <div
