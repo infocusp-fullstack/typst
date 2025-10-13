@@ -18,6 +18,7 @@ const EditorPane = dynamic(() => import("@/components/editor/EditorPane"), {
 const PreviewPane = dynamic(() => import("@/components/editor/PreviewPane"), {
   ssr: false,
 });
+import { SyncModal } from "@/components/editor/SyncModal";
 import { User } from "@supabase/supabase-js";
 
 import {
@@ -28,6 +29,8 @@ import {
 import { PDFContent } from "@/types";
 import { useDialog } from "@/hooks/useDialog";
 import { showToast } from "@/lib/toast";
+import { getAdminClient } from "@/lib/supabaseClient";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 interface TypstEditorProps {
   projectId: string;
@@ -51,6 +54,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   const [projectTitle, setProjectTitle] = useState("");
   const [typPath, setTypPath] = useState("");
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const lastSavedRef = useRef<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -60,6 +64,71 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   const didInitRef = useRef(false);
   const hasCompiledInitialRef = useRef(false);
   const [isContentLoaded, setIsContentLoaded] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [latestContent, setLatestContent] = useState<string | null>(null);
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+
+  const setupRealtimeSubscription = useCallback((projectId: string) => {
+    try {
+      const supabase = getAdminClient();
+
+      // Clean up existing subscription
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.unsubscribe();
+      }
+
+      // Subscribe to project updates
+      const channel = supabase
+        .channel(`project-${projectId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "projects",
+            filter: `id=eq.${projectId}`,
+          },
+          async (payload) => {
+            console.log("Received project update:", payload);
+            const updatedProject = payload.new;
+            const newUpdatedAt = new Date(updatedProject.updated_at);
+
+            console.log(
+              "Current lastSaved:",
+              lastSavedRef.current,
+              "New updated_at:",
+              newUpdatedAt,
+            );
+
+            // Only trigger if the update is newer than what we have
+            if (
+              lastSavedRef.current &&
+              newUpdatedAt.getTime() > lastSavedRef.current.getTime()
+            ) {
+              // Fetch the latest content
+              try {
+                const latestContent = await loadProjectFile(
+                  updatedProject.typ_path,
+                );
+
+                // Compare with current content
+                if (latestContent !== contentRef.current) {
+                  setLatestContent(latestContent);
+                  setShowSyncModal(true);
+                }
+              } catch (error) {
+                console.error("Failed to fetch latest content:", error);
+              }
+            }
+          },
+        )
+        .subscribe();
+
+      realtimeChannelRef.current = channel;
+    } catch (error) {
+      console.error("Failed to set up real-time subscription:", error);
+    }
+  }, []);
 
   const compileTypst = useCallback(
     async (source: string) => {
@@ -85,7 +154,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         setIsCompiling(false);
       }
     },
-    [$typst, isTypstReady]
+    [$typst, isTypstReady],
   );
 
   useEffect(() => {
@@ -126,9 +195,14 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         contentRef.current = content;
         setProjectTitle(project.title);
         setTypPath(project.typ_path);
-        setLastSaved(new Date(project.updated_at));
+        const initialLastSaved = new Date(project.updated_at);
+        setLastSaved(initialLastSaved);
+        lastSavedRef.current = initialLastSaved;
         setHasChanges(false);
         setIsContentLoaded(true);
+
+        // Set up real-time subscription for project updates
+        setupRealtimeSubscription(projectId);
       } catch {
         showToast.error("Failed to load project.");
         router.push("/dashboard");
@@ -137,7 +211,16 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     };
 
     if (projectId !== "new") void load();
-  }, [projectId, user.id, compileTypst, router]);
+  }, [projectId, user.id, compileTypst, router, setupRealtimeSubscription]);
+
+  // Cleanup real-time subscription on unmount
+  useEffect(() => {
+    return () => {
+      if (realtimeChannelRef.current) {
+        realtimeChannelRef.current.unsubscribe();
+      }
+    };
+  }, []);
 
   const debouncedCompile = useDebounce(compileTypst, 300);
 
@@ -191,6 +274,13 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   const handleSave = useCallback(async () => {
     if (!typPath || !contentRef.current || !canEdit) return;
 
+    // If there's pending latest content (user previously cancelled sync modal),
+    // show the modal again
+    if (latestContent !== null) {
+      setShowSyncModal(true);
+      return;
+    }
+
     try {
       setIsSaving(true);
 
@@ -213,16 +303,44 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         projectId,
         typPath,
         contentRef.current,
-        pdfContent || undefined
+        pdfContent || undefined,
       );
-      setLastSaved(new Date());
+      const newLastSaved = new Date();
+      setLastSaved(newLastSaved);
+      lastSavedRef.current = newLastSaved;
       setHasChanges(false);
     } catch {
       showToast.error("Failed to save.");
     } finally {
       setIsSaving(false);
     }
-  }, [typPath, canEdit, isTypstReady, compileAsync, projectId]);
+  }, [typPath, canEdit, isTypstReady, compileAsync, projectId, $typst]);
+
+  const handleOverride = useCallback(async () => {
+    // User chooses to keep their changes - just save them
+    await handleSave();
+    setShowSyncModal(false);
+    setLatestContent(null);
+  }, [handleSave]);
+
+  const handleTakeLatest = useCallback(async () => {
+    if (!latestContent) return;
+
+    // User chooses to take the latest changes
+    contentRef.current = latestContent;
+    setHasChanges(false);
+
+    // Recompile with the new content
+    debouncedCompile(latestContent);
+
+    // Update the last saved time
+    const newLastSaved = new Date();
+    setLastSaved(newLastSaved);
+    lastSavedRef.current = newLastSaved;
+
+    setShowSyncModal(false);
+    setLatestContent(null);
+  }, [latestContent, debouncedCompile]);
 
   const handleExport = async () => {
     const typstInstance = $typst;
@@ -315,6 +433,13 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
           />
         </div>
       </div>
+
+      <SyncModal
+        open={showSyncModal}
+        onClose={() => setShowSyncModal(false)}
+        onOverride={handleOverride}
+        onTakeLatest={handleTakeLatest}
+      />
     </div>
   );
 }

@@ -101,9 +101,25 @@ export default function EditorPane({
           color: isDark ? "#f8f8f2" : "#111827",
         },
       },
-      { dark: isDark }
+      { dark: isDark },
     );
   }, [theme]);
+
+  // Update editor content when initialContent changes
+  useEffect(() => {
+    if (viewRef.current && didInitRef.current) {
+      const currentContent = viewRef.current.state.doc.toString();
+      if (currentContent !== initialContent) {
+        viewRef.current.dispatch({
+          changes: {
+            from: 0,
+            to: currentContent.length,
+            insert: initialContent,
+          },
+        });
+      }
+    }
+  }, [initialContent]);
 
   useEffect(() => {
     if (!editorRef.current || didInitRef.current) return;
