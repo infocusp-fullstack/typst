@@ -429,7 +429,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
       case "shared":
         return "Shared with me";
       case "all":
-        return "All resumes";
+        return "All documents";
       default:
         return "Recent documents";
     }
@@ -455,6 +455,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
             isCreatingFromTemplate={isCreatingFromTemplate}
             onCreate={handleCreateNewDocument}
             onCreateFromTemplate={handleCreateFromTemplate}
+            isCXO={isCXO}
           />
 
           {error && (
