@@ -25,7 +25,7 @@ export function FilterDropdown({
   const filterOptions = [
     { value: "owned", label: "Owned by me" },
     { value: "shared", label: "Shared with me" },
-    ...(isCXO ? [{ value: "all", label: "All resumes" }] : []),
+    ...(isCXO ? [{ value: "all", label: "All documents" }] : []),
   ];
 
   return (

@@ -10,6 +10,7 @@ interface NewDocumentCardProps {
   isCreatingFromTemplate?: boolean;
   onCreate: () => void;
   onCreateFromTemplate: (template: Template) => void;
+  isCXO: boolean;
 }
 
 export const NewDocumentCard = React.memo(function NewDocumentCard({
@@ -17,34 +18,37 @@ export const NewDocumentCard = React.memo(function NewDocumentCard({
   isCreatingFromTemplate = false,
   onCreate,
   onCreateFromTemplate,
+  isCXO,
 }: NewDocumentCardProps) {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-medium">Start a new document</h2>
 
       <div className="flex gap-4 flex-wrap">
-        {/* Blank document card */}
-        <Card
-          className={`w-72 h-24 border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer group ${
-            isCreating || isCreatingFromTemplate
-              ? "pointer-events-none opacity-50"
-              : ""
-          }`}
-          onClick={onCreate}
-        >
-          <CardContent className="flex flex-col items-center justify-center h-full p-6">
-            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
-              {isCreating ? (
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-              ) : (
-                <Plus className="w-4 h-4 text-primary" />
-              )}
-            </div>
-            <span className="text-sm text-muted-foreground font-medium">
-              {isCreating ? "Creating..." : "Blank Document"}
-            </span>
-          </CardContent>
-        </Card>
+        {/* Blank document card - only for CXO users */}
+        {isCXO && (
+          <Card
+            className={`w-72 h-24 border-2 border-dashed border-muted-foreground/20 hover:border-primary/40 hover:bg-primary/5 transition-all cursor-pointer group ${
+              isCreating || isCreatingFromTemplate
+                ? "pointer-events-none opacity-50"
+                : ""
+            }`}
+            onClick={onCreate}
+          >
+            <CardContent className="flex flex-col items-center justify-center h-full p-6">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-3 group-hover:bg-primary/20 transition-colors">
+                {isCreating ? (
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                ) : (
+                  <Plus className="w-4 h-4 text-primary" />
+                )}
+              </div>
+              <span className="text-sm text-muted-foreground font-medium">
+                {isCreating ? "Creating..." : "Blank Document"}
+              </span>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Template picker card */}
         <TemplatePickerDialog
