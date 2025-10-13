@@ -13,7 +13,7 @@ import {
 } from "@/lib/thumbnailService";
 import { loadTemplateFromStorage } from "@/lib/templateService";
 
-const DEFAULT_CONTENT = ``;
+const DEFAULT_CONTENT = `= Hello, world!`;
 const PAGE_SIZE = 20;
 
 /* ---------- Fetch user projects with pagination and filtering ---------- */
@@ -62,7 +62,6 @@ export async function fetchUserProjects(
       query = supabase
         .from("projects")
         .select("*", { count: "exact" })
-        .eq("project_type", "resume")
         .order("updated_at", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
     } else {
@@ -153,7 +152,6 @@ export async function searchUserProjects(
       query = supabase
         .from("projects")
         .select("*", { count: "exact" })
-        .eq("project_type", "resume")
         .ilike("title", `%${searchQuery.trim()}%`)
         .order("updated_at", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);

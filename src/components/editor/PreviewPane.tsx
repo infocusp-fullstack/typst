@@ -7,12 +7,14 @@ interface PreviewPaneProps {
   content: PDFContent | string | null;
   isCompiling: boolean;
   error: string | null;
+  isTypstLoading?: boolean;
 }
 
-export const PreviewPane = memo(function PreviewPane({
+const PreviewPane = memo(function PreviewPane({
   content,
   isCompiling,
   error,
+  isTypstLoading = false,
 }: PreviewPaneProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
@@ -32,17 +34,6 @@ export const PreviewPane = memo(function PreviewPane({
     }
   }, [content]);
 
-  if (isCompiling) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <div className="animate-spin h-6 w-6 rounded-full border-2 border-b-0 border-primary" />
-        <div className="text-xs text-muted-foreground">
-          Compiling document...
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="text-red-500 p-4">
@@ -51,21 +42,33 @@ export const PreviewPane = memo(function PreviewPane({
     );
   }
 
-  if (!content || (typeof content === "string" && content.trim() === "")) {
-    return (
-      <div className="placeholder flex items-center justify-center h-full text-muted-foreground text-sm">
-        Start typing to see your document
-      </div>
-    );
-  }
-
   // pdfUrl + ("#toolbar=0&navpanes=0&scrollbar=1view=FitH&print=0&download=0");
   if (pdfUrl) {
     return (
       <div className="h-full w-full overflow-hidden">
-        <iframe src={pdfUrl} className="w-full h-full" title="PDF Preview" />
+        <iframe
+          src={pdfUrl}
+          className="w-full h-full"
+          title="PDF Preview"
+          loading="lazy"
+        />
       </div>
     );
+  }
+
+  if (isTypstLoading || isCompiling) {
+    return <div className="h-full w-full" />;
+  }
+
+  // show "start typing" message if there's no content
+  if (!content || (typeof content === "string" && content.trim() === "")) {
+    if (!error) {
+      return (
+        <div className="placeholder flex items-center justify-center h-full text-muted-foreground text-sm">
+          Start typing to see your document
+        </div>
+      );
+    }
   }
 
   // Fallback for string content (if any)
@@ -76,3 +79,5 @@ export const PreviewPane = memo(function PreviewPane({
     />
   );
 });
+
+export default PreviewPane;

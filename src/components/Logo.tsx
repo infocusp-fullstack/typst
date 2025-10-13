@@ -21,6 +21,8 @@ const Logo = ({ className = "", size = "md" }: LogoProps) => {
         width={size === "sm" ? 24 : size === "md" ? 32 : 80}
         height={size === "sm" ? 24 : size === "md" ? 32 : 80}
         className="w-full h-full object-contain"
+        priority={false}
+        loading="lazy"
       />
     </div>
   );
