@@ -13,7 +13,7 @@ const ShareModal = dynamic(
   () => import("./ShareModal").then((m) => m.ShareModal),
   {
     ssr: false,
-  },
+  }
 );
 
 export const Toolbar = memo(function Toolbar({

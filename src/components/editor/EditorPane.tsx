@@ -103,7 +103,7 @@ export default function EditorPane({
           color: isDark ? "#f8f8f2" : "#111827",
         },
       },
-      { dark: isDark },
+      { dark: isDark }
     );
   }, [theme]);
 
