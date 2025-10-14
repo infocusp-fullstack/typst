@@ -21,7 +21,7 @@ export async function fetchUserProjects(
   page: number = 0,
   pageSize: number = PAGE_SIZE,
   filter: FilterType = "owned",
-  userId: string,
+  userId: string
 ): Promise<{
   projects: ProjectWithShares[];
   hasMore: boolean;
@@ -49,7 +49,7 @@ export async function fetchUserProjects(
           *,
           project_shares!inner(shared_with)
         `,
-          { count: "exact" },
+          { count: "exact" }
         )
         .eq("project_shares.shared_with", userId)
         .order("updated_at", { ascending: false })
@@ -108,7 +108,7 @@ export async function searchUserProjects(
   page: number = 0,
   pageSize: number = PAGE_SIZE,
   filter: FilterType = "owned",
-  userId: string,
+  userId: string
 ): Promise<{
   projects: ProjectWithShares[];
   hasMore: boolean;
@@ -137,7 +137,7 @@ export async function searchUserProjects(
           *,
           project_shares!inner(shared_with)
         `,
-          { count: "exact" },
+          { count: "exact" }
         )
         .eq("project_shares.shared_with", userId)
         .ilike("title", `%${searchQuery.trim()}%`)
@@ -195,7 +195,7 @@ export async function searchUserProjects(
 }
 
 export async function fetchUserProjectById(
-  projectId: string,
+  projectId: string
 ): Promise<Project | null> {
   try {
     const supabase = getAdminClient();
@@ -219,7 +219,7 @@ export async function createProjectFromTemplate(
   userId: string,
   title: string,
   template: Template,
-  projectType: "resume" | "document" = "document",
+  projectType: "resume" | "document" = "document"
 ): Promise<Project> {
   const projectId = crypto.randomUUID();
   const typPath = `${userId}/${projectId}/main.typ`;
@@ -301,7 +301,7 @@ export async function loadProjectFile(path: string): Promise<string> {
 /* ---------- Create new project with initial file ---------- */
 export async function createNewProject(
   userId: string,
-  title: string = "Untitled Document",
+  title: string = "Untitled Document"
 ): Promise<Project> {
   try {
     const projectId = crypto.randomUUID();
@@ -351,7 +351,7 @@ export async function saveProjectFile(
   projectId: string,
   typPath: string,
   code: string,
-  pdfContent?: PDFContent,
+  pdfContent?: PDFContent
 ): Promise<void> {
   try {
     const supabase = getAdminClient();
@@ -374,7 +374,7 @@ export async function saveProjectFile(
         const thumbnailPath = `${typPath.replace(".typ", "_thumb.png")}`;
         const storedPathOrUrl = await generateAndUploadThumbnail(
           pdfContent,
-          thumbnailPath,
+          thumbnailPath
         );
 
         // Update database with thumbnail path or public URL
@@ -389,7 +389,7 @@ export async function saveProjectFile(
         if (thumbnailUpdateError) {
           console.error(
             "Failed to update thumbnail path:",
-            thumbnailUpdateError,
+            thumbnailUpdateError
           );
         }
       } catch (thumbnailError) {
@@ -404,7 +404,7 @@ export async function saveProjectFile(
 /* ---------- Rename project ---------- */
 export async function renameProject(
   projectId: string,
-  newTitle: string,
+  newTitle: string
 ): Promise<Project> {
   try {
     const supabase = getAdminClient();
@@ -433,7 +433,7 @@ export async function renameProject(
 export async function deleteProject(
   projectId: string,
   typPath: string,
-  thumbnail_path?: string,
+  thumbnail_path?: string
 ): Promise<void> {
   try {
     const supabase = getAdminClient();

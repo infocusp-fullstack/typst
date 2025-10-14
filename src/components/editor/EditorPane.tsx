@@ -9,12 +9,14 @@ export default function EditorPane({
   onChange,
   onSave,
   readOnly = false,
+  canSave = true,
 }: {
   initialContent: string;
   theme: string;
   onChange: (doc: string) => void;
   onSave: () => void;
   readOnly?: boolean;
+  canSave?: boolean;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -101,7 +103,7 @@ export default function EditorPane({
           color: isDark ? "#f8f8f2" : "#111827",
         },
       },
-      { dark: isDark }
+      { dark: isDark },
     );
   }, [theme]);
 
@@ -136,7 +138,7 @@ export default function EditorPane({
         const saveKeymap = {
           key: "Mod-s",
           run: () => {
-            if (!readOnly) {
+            if (!readOnly && canSave) {
               onSaveRef.current();
             }
             return true;
