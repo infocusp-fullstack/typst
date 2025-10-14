@@ -32,6 +32,7 @@ export const Toolbar = memo(function Toolbar({
   user,
   isOwner,
   isBusy,
+  canSave,
 }: {
   projectTitle?: string;
   isSaving: boolean;
@@ -48,6 +49,7 @@ export const Toolbar = memo(function Toolbar({
   user: User;
   isOwner: boolean;
   isBusy?: boolean;
+  canSave?: boolean;
 }) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
@@ -108,7 +110,7 @@ export const Toolbar = memo(function Toolbar({
             variant="ghost"
             size="sm"
             onClick={onSave}
-            disabled={isSaving || !hasUnsavedChanges}
+            disabled={isSaving || !hasUnsavedChanges || !canSave}
           >
             <Save className="mr-2 h-4 w-4" />
             Save

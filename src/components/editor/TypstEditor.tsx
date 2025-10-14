@@ -58,8 +58,10 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
   const [isOwner, setIsOwner] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const didInitRef = useRef(false);
-  const hasCompiledInitialRef = useRef(false);
+  const [hasCompiledInitial, setHasCompiledInitial] = useState(false);
   const [isContentLoaded, setIsContentLoaded] = useState(false);
+
+  const canSave = contentRef.current.trim() !== "";
 
   const compileTypst = useCallback(
     async (source: string) => {
@@ -110,17 +112,14 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         const owner = project.user_id === user.id;
         setIsOwner(owner);
 
-        // If user is CXO, only grant elevated access for resumes
-        const cxoHasAccess = iscxo && project.project_type === "resume";
-
         // Hard block: if not owner, not explicitly shared, and CXO lacks resume context, redirect
-        if (!owner && !viewPermission && !cxoHasAccess) {
+        if (!owner && !viewPermission && !iscxo) {
           showToast.error("You don't have access to this document.");
           router.push("/dashboard");
           return;
         }
 
-        setCanEdit(owner || cxoHasAccess || editPermission);
+        setCanEdit(owner || iscxo || editPermission);
 
         // Content and state
         contentRef.current = content;
@@ -143,18 +142,15 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
 
   // Trigger a single initial compile once both Typst and content are ready
   useEffect(() => {
-    if (
-      !hasCompiledInitialRef.current &&
-      isTypstReady &&
-      isContentLoaded &&
-      contentRef.current
-    ) {
-      hasCompiledInitialRef.current = true;
-      // Defer initial compile to idle time to avoid blocking LCP
+    if (!hasCompiledInitial && isTypstReady && isContentLoaded) {
+      setHasCompiledInitial(true);
+
       const start = () => {
-        if (!contentRef.current.trim()) {
+        // No content, clear preview and return
+        if (!contentRef.current || !contentRef.current.trim()) {
           setPreview(null);
           setIsCompiling(false);
+          setError(null);
           return;
         }
 
@@ -162,12 +158,13 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         compileAsync(contentRef.current)
           .then((pdf) => {
             setPreview(pdf);
-            setIsCompiling(false);
           })
           .catch((err) => {
             console.error("Initial compilation failed:", err);
             setError("Compilation failed");
             setPreview(null);
+          })
+          .finally(() => {
             setIsCompiling(false);
           });
       };
@@ -178,7 +175,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         setTimeout(start, 0);
       }
     }
-  }, [isTypstReady, isContentLoaded, compileAsync]);
+  }, [isTypstReady, isContentLoaded, compileAsync, hasCompiledInitial]);
 
   const handleChange = (newDoc: string) => {
     if (!canEdit) return; // Prevent editing if user doesn't have permission
@@ -288,7 +285,8 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
         projectId={projectId}
         user={user}
         isOwner={isOwner}
-        isBusy={isTypstLoading || !hasCompiledInitialRef.current || isCompiling}
+        isBusy={isTypstLoading || !hasCompiledInitial || isCompiling}
+        canSave={canSave}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -304,6 +302,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
             onChange={handleChange}
             onSave={handleSave}
             readOnly={!canEdit}
+            canSave={canSave}
           />
         </div>
         <div className="w-1/2 overflow-auto preview-container h-full">
@@ -311,7 +310,7 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
             content={preview}
             isCompiling={isCompiling}
             error={error}
-            isTypstLoading={isTypstLoading || !hasCompiledInitialRef.current}
+            isTypstLoading={isTypstLoading || !hasCompiledInitial}
           />
         </div>
       </div>
