@@ -399,12 +399,6 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
               ? "Try adjusting your search"
               : "Create your first document to get started"}
           </p>
-          {!searchQuery && (
-            <Button onClick={handleCreateNewDocument} disabled={isCreating}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Document
-            </Button>
-          )}
         </CardContent>
       </Card>
     ),
