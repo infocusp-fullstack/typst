@@ -296,7 +296,7 @@ export default function Dashboard({ user, signOut }: DashboardProps) {
         throw err;
       }
     },
-    [],
+    [refresh, optimisticRename],
   );
 
   const handleSignOut = useCallback(async () => {

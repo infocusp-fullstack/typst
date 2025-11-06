@@ -1,5 +1,6 @@
 import { getAdminClient } from "./supabaseClient";
 import { ProjectShare, User, SharePermission } from "@/types";
+import { getUserById as fetchUserById } from "./apiHelpers";
 
 // Check if user is a CXO (has access to view all resumes)
 export async function isCXOUser(userId: string): Promise<boolean> {
@@ -7,11 +8,10 @@ export async function isCXOUser(userId: string): Promise<boolean> {
     const supabase = getAdminClient();
 
     // First get the user's email
-    const { data: userData, error: userError } =
-      await supabase.auth.admin.getUserById(userId);
+    const userData = await fetchUserById(userId);
 
-    if (userError || !userData.user?.email) {
-      console.error("Error getting user email:", userError);
+    if (!userData?.user?.email) {
+      console.error("Error getting user email");
       return false;
     }
 
@@ -58,16 +58,15 @@ export async function shareProject(
   updatedPermission: SharePermission
 ): Promise<ProjectShare> {
   try {
-    const supabase = await getAdminClient();
+    const supabase = getAdminClient();
 
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.admin.getUserById(toUserId);
+    const userData = await fetchUserById(toUserId);
 
-    if (userError || !user) {
+    if (!userData?.user) {
       throw new Error("User not found");
     }
+
+    const user = userData.user;
 
     // Check if already shared
     const { data } = await supabase
@@ -110,7 +109,8 @@ export async function shareProject(
       return data as ProjectShare;
     }
   } catch (error) {
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    throw new Error(errorMessage);
   }
 }
 
@@ -130,7 +130,8 @@ export async function unshareProject(
 
     if (error) throw new Error(`Failed to unshare: ${error.message}`);
   } catch (error) {
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    throw new Error(errorMessage);
   }
 }
 
@@ -153,17 +154,18 @@ export async function getProjectShares(
     const sharesWithUsers = await Promise.all(
       (data as ProjectShare[]).map(async (share) => {
         try {
-          const { data: userData } = await supabase.auth.admin.getUserById(
-            share.shared_with
-          );
+          const userData = await fetchUserById(share.shared_with);
+          if (!userData?.user) {
+            return { ...share, user: undefined };
+          }
           const user: User = {
             id: share.shared_with,
-            email: userData.user?.email || "Unknown",
+            email: userData.user.email || "Unknown",
             name:
-              userData.user?.user_metadata?.name ||
-              userData.user?.email?.split("@")[0] ||
+              userData.user.name ||
+              userData.user.email?.split("@")[0] ||
               "Unknown",
-            created_at: userData.user?.created_at || "",
+            created_at: userData.user.created_at || "",
           };
           return { ...share, user };
         } catch (error) {
@@ -178,7 +180,8 @@ export async function getProjectShares(
 
     return sharesWithUsers;
   } catch (error) {
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    throw new Error(errorMessage);
   }
 }
 
@@ -188,41 +191,21 @@ export async function searchUsers(
   options?: { excludeUserIds?: string[] }
 ): Promise<User[]> {
   try {
-    const supabase = getAdminClient();
+    const { searchUsers: searchUsersAPI } = await import("./apiHelpers");
+    const { users } = await searchUsersAPI(query);
 
-    // Query all users from auth.users
-    const { data, error } = await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 1000,
-    });
-
-    if (error) {
-      console.error("Error fetching users:", error);
+    if (!users || users.length === 0) {
       return [];
     }
 
     // Filter users by email or name
     const excludeIds = options?.excludeUserIds ?? [];
 
-    const filteredUsers = data.users
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .filter((user: any) => {
-        const email = user.email?.toLowerCase() || "";
-        const name = user.user_metadata?.name?.toLowerCase() || "";
-        const searchTerm = query.toLowerCase();
-
+    const filteredUsers = users
+      .filter((user) => {
         if (excludeIds.includes(user.id)) return false;
-
-        return email.includes(searchTerm) || name.includes(searchTerm);
+        return true;
       })
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .map((user: any) => ({
-        id: user.id,
-        email: user.email,
-        name:
-          user.user_metadata?.name || user.email?.split("@")[0] || "Unknown",
-        created_at: user.created_at,
-      }))
       .slice(0, 10); // Limit to 10 results
 
     return filteredUsers;

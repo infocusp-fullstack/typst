@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { getAdminClient } from "@/lib/supabaseClient";
 import showToast from "@/lib/toast";
+import { APP_CONFIG } from "@/lib/config";
 
 type AuthContextType = {
   user: User | null;
@@ -102,11 +103,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return { error: new Error("Supabase client initialization failed") };
         }
 
-        // Validate email domain
-        if (!email.endsWith("@infocusp.com")) {
-          return {
-            error: new Error("Access restricted to Infocusp employees only"),
-          };
+        // Validate email domain if configured
+        if (APP_CONFIG.auth.requireEmailDomain && APP_CONFIG.auth.allowedEmailDomains.length > 0) {
+          const emailDomain = email.substring(email.lastIndexOf('@'));
+          const isAllowed = APP_CONFIG.auth.allowedEmailDomains.some(domain =>
+            emailDomain === domain || emailDomain.endsWith(domain)
+          );
+
+          if (!isAllowed) {
+            return {
+              error: new Error(`Access restricted. Allowed domains: ${APP_CONFIG.auth.allowedEmailDomains.join(', ')}`),
+            };
+          }
         }
 
         const { error } = await supabase.auth.signInWithOtp({

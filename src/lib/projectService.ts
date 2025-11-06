@@ -12,9 +12,92 @@ import {
   deleteThumbnail,
 } from "@/lib/thumbnailService";
 import { loadTemplateFromStorage } from "@/lib/templateService";
+import { APP_CONFIG } from "@/lib/config";
 
 const DEFAULT_CONTENT = `= Hello, world!`;
-const PAGE_SIZE = 20;
+const PAGE_SIZE = APP_CONFIG.pagination.pageSize;
+
+/* ---------- Helper Functions ---------- */
+function buildProjectQuery(
+  supabase: ReturnType<typeof getAdminClient>,
+  filter: FilterType,
+  userId: string,
+  page: number,
+  pageSize: number,
+  searchQuery?: string
+) {
+  const range = [page * pageSize, (page + 1) * pageSize - 1] as const;
+
+  if (filter === "owned") {
+    let query = supabase
+      .from("projects")
+      .select("*", { count: "exact" })
+      .eq("user_id", userId);
+
+    if (searchQuery) {
+      query = query.ilike("title", `%${searchQuery.trim()}%`);
+    }
+
+    return query
+      .order("updated_at", { ascending: false })
+      .range(range[0], range[1]);
+  } else if (filter === "shared") {
+    let query = supabase
+      .from("projects")
+      .select(
+        `
+        *,
+        project_shares!inner(shared_with)
+      `,
+        { count: "exact" }
+      )
+      .eq("project_shares.shared_with", userId);
+
+    if (searchQuery) {
+      query = query.ilike("title", `%${searchQuery.trim()}%`);
+    }
+
+    return query
+      .order("updated_at", { ascending: false })
+      .range(range[0], range[1]);
+  } else {
+    let query = supabase
+      .from("projects")
+      .select("*", { count: "exact" });
+
+    if (searchQuery) {
+      query = query.ilike("title", `%${searchQuery.trim()}%`);
+    }
+
+    return query
+      .order("updated_at", { ascending: false })
+      .range(range[0], range[1]);
+  }
+}
+
+function cleanProjectData(data: unknown, filter: FilterType): ProjectWithShares[] {
+  if (!data || !Array.isArray(data)) return [];
+
+  if (filter === "shared") {
+    return data.map((item: unknown) => {
+      const typedItem = item as ProjectWithShares;
+      return {
+        id: typedItem.id,
+        user_id: typedItem.user_id,
+        title: typedItem.title,
+        typ_path: typedItem.typ_path,
+        thumbnail_path: typedItem.thumbnail_path,
+        created_at: typedItem.created_at,
+        updated_at: typedItem.updated_at,
+        project_shares: typedItem.project_shares,
+        project_type: typedItem.project_type,
+        template_id: typedItem.template_id,
+      };
+    });
+  }
+
+  return data as ProjectWithShares[];
+}
 
 /* ---------- Fetch user projects with pagination and filtering ---------- */
 export async function fetchUserProjects(
@@ -30,67 +113,21 @@ export async function fetchUserProjects(
   try {
     const supabase = getAdminClient();
 
-    let query;
-
-    if (filter === "owned") {
-      // User's own projects
-      query = supabase
-        .from("projects")
-        .select("*", { count: "exact" })
-        .eq("user_id", userId)
-        .order("updated_at", { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-    } else if (filter === "shared") {
-      // Projects shared with the user - use a join query
-      query = supabase
-        .from("projects")
-        .select(
-          `
-          *,
-          project_shares!inner(shared_with)
-        `,
-          { count: "exact" }
-        )
-        .eq("project_shares.shared_with", userId)
-        .order("updated_at", { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-    } else if (filter === "all") {
+    if (filter === "all") {
       const isCXO = await isCXOUser(userId);
       if (!isCXO) {
         throw new Error("Access denied: CXO privileges required");
       }
-      query = supabase
-        .from("projects")
-        .select("*", { count: "exact" })
-        .order("updated_at", { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-    } else {
-      throw new Error("Invalid filter type");
     }
 
+    const query = buildProjectQuery(supabase, filter, userId, page, pageSize);
     const { data, count, error } = await query;
 
     if (error) {
       throw new Error(`Failed to fetch projects: ${error.message}`);
     }
 
-    // Clean up the data structure for shared projects
-    const projects =
-      filter === "shared"
-        ? ((data as ProjectWithShares[])?.map((item) => ({
-            id: item.id,
-            user_id: item.user_id,
-            title: item.title,
-            typ_path: item.typ_path,
-            thumbnail_path: item.thumbnail_path,
-            created_at: item.created_at,
-            updated_at: item.updated_at,
-            project_shares: item.project_shares,
-            project_type: item.project_type,
-            template_id: item.template_id,
-          })) as ProjectWithShares[]) || []
-        : (data as ProjectWithShares[]) || [];
-
+    const projects = cleanProjectData(data, filter);
     const hasMore = (page + 1) * pageSize < (count || 0);
 
     return {
@@ -99,7 +136,8 @@ export async function fetchUserProjects(
       totalCount: count || 0,
     };
   } catch (error) {
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    throw new Error(errorMessage);
   }
 }
 
@@ -115,73 +153,28 @@ export async function searchUserProjects(
   totalCount: number;
 }> {
   try {
+    // Validate search query length
+    if (searchQuery.length > APP_CONFIG.validation.maxSearchQueryLength) {
+      throw new Error(`Search query too long. Maximum ${APP_CONFIG.validation.maxSearchQueryLength} characters`);
+    }
+
     const supabase = getAdminClient();
 
-    let query;
-
-    if (filter === "owned") {
-      // User's own projects with search
-      query = supabase
-        .from("projects")
-        .select("*", { count: "exact" })
-        .eq("user_id", userId)
-        .ilike("title", `%${searchQuery.trim()}%`)
-        .order("updated_at", { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-    } else if (filter === "shared") {
-      // Projects shared with the user with search
-      query = supabase
-        .from("projects")
-        .select(
-          `
-          *,
-          project_shares!inner(shared_with)
-        `,
-          { count: "exact" }
-        )
-        .eq("project_shares.shared_with", userId)
-        .ilike("title", `%${searchQuery.trim()}%`)
-        .order("updated_at", { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-    } else if (filter === "all") {
+    if (filter === "all") {
       const isCXO = await isCXOUser(userId);
       if (!isCXO) {
         throw new Error("Access denied: CXO privileges required");
       }
-      // All projects with search (CXO only)
-      query = supabase
-        .from("projects")
-        .select("*", { count: "exact" })
-        .ilike("title", `%${searchQuery.trim()}%`)
-        .order("updated_at", { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
-    } else {
-      throw new Error("Invalid filter type");
     }
 
+    const query = buildProjectQuery(supabase, filter, userId, page, pageSize, searchQuery);
     const { data, count, error } = await query;
 
     if (error) {
       throw new Error(`Failed to search projects: ${error.message}`);
     }
 
-    // Clean up the data structure for shared projects
-    const projects =
-      filter === "shared"
-        ? (data as ProjectWithShares[])?.map((item) => ({
-            id: item.id,
-            user_id: item.user_id,
-            title: item.title,
-            typ_path: item.typ_path,
-            thumbnail_path: item.thumbnail_path,
-            created_at: item.created_at,
-            updated_at: item.updated_at,
-            project_shares: item.project_shares,
-            project_type: item.project_type,
-            template_id: item.template_id,
-          })) || []
-        : (data as ProjectWithShares[]) || [];
-
+    const projects = cleanProjectData(data, filter);
     const hasMore = (page + 1) * pageSize < (count || 0);
 
     return {
@@ -190,7 +183,8 @@ export async function searchUserProjects(
       totalCount: count || 0,
     };
   } catch (error) {
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    throw new Error(errorMessage);
   }
 }
 
@@ -304,6 +298,14 @@ export async function createNewProject(
   title: string = "Untitled Document"
 ): Promise<Project> {
   try {
+    // Validate title length
+    if (title.length < APP_CONFIG.validation.minTitleLength) {
+      throw new Error(`Title too short. Minimum ${APP_CONFIG.validation.minTitleLength} character`);
+    }
+    if (title.length > APP_CONFIG.validation.maxTitleLength) {
+      throw new Error(`Title too long. Maximum ${APP_CONFIG.validation.maxTitleLength} characters`);
+    }
+
     const projectId = crypto.randomUUID();
     const typPath = `${userId}/${projectId}/main.typ`;
 
@@ -342,7 +344,8 @@ export async function createNewProject(
 
     return data as Project;
   } catch (error) {
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    throw new Error(errorMessage);
   }
 }
 
@@ -397,7 +400,8 @@ export async function saveProjectFile(
       }
     }
   } catch (error) {
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    throw new Error(errorMessage);
   }
 }
 
@@ -407,6 +411,14 @@ export async function renameProject(
   newTitle: string
 ): Promise<Project> {
   try {
+    // Validate title length
+    if (newTitle.length < APP_CONFIG.validation.minTitleLength) {
+      throw new Error(`Title too short. Minimum ${APP_CONFIG.validation.minTitleLength} character`);
+    }
+    if (newTitle.length > APP_CONFIG.validation.maxTitleLength) {
+      throw new Error(`Title too long. Maximum ${APP_CONFIG.validation.maxTitleLength} characters`);
+    }
+
     const supabase = getAdminClient();
 
     const { data, error } = await supabase
@@ -425,7 +437,8 @@ export async function renameProject(
 
     return data as Project;
   } catch (error) {
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    throw new Error(errorMessage);
   }
 }
 
