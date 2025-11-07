@@ -33,9 +33,14 @@ interface TypstEditorProps {
   projectId: string;
   user: User;
   signOut: () => Promise<void>;
+  triggerReload: () => void;
 }
 
-export default function TypstEditor({ projectId, user }: TypstEditorProps) {
+export default function TypstEditor({
+  projectId,
+  user,
+  triggerReload,
+}: TypstEditorProps) {
   const { confirm } = useDialog();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -89,6 +94,20 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     },
     [$typst, isTypstReady]
   );
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasChanges) {
+        e.preventDefault();
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasChanges]);
 
   useEffect(() => {
     if (didInitRef.current) return;
@@ -185,41 +204,80 @@ export default function TypstEditor({ projectId, user }: TypstEditorProps) {
     debouncedCompile(newDoc);
   };
 
-  const handleSave = useCallback(async () => {
-    if (!typPath || !contentRef.current || !canEdit) return;
-
-    try {
-      setIsSaving(true);
-
-      // Always compile fresh content for save to ensure we have the latest version
-      let pdfContent: PDFContent | null = null;
-      const typstInstance = $typst;
-      if (!typstInstance || !isTypstReady) {
-        return;
-      }
-      if (typstInstance) {
-        try {
-          pdfContent = await compileAsync(contentRef.current);
-        } catch (compileError) {
-          console.error("Compilation failed during save:", compileError);
-          pdfContent = null;
-        }
-      }
-
-      await saveProjectFile(
-        projectId,
-        typPath,
-        contentRef.current,
-        pdfContent || undefined
-      );
-      setLastSaved(new Date());
-      setHasChanges(false);
-    } catch {
-      showToast.error("Failed to save.");
-    } finally {
+  const checkContentOverride = async () => {
+    const lastProjectDetails = await fetchUserProjectById(projectId);
+    if (
+      JSON.stringify(new Date(lastProjectDetails?.updated_at!)) !==
+      JSON.stringify(lastSaved)
+    ) {
       setIsSaving(false);
+      return true;
     }
-  }, [typPath, canEdit, isTypstReady, compileAsync, projectId]);
+    return false;
+  };
+
+  const handleSave = useCallback(
+    async (forceSave: boolean = false) => {
+      if (!typPath || !contentRef.current || !canEdit || !hasChanges) return;
+
+      try {
+        setIsSaving(true);
+
+        if (!forceSave) {
+          const areChangesConflicting = await checkContentOverride();
+          if (areChangesConflicting) {
+            const ok = await confirm({
+              title: "Override Changes?",
+              description:
+                "The resume content has modified by someone else. Are you sure you want to override those changes?",
+              confirmText: "Override",
+              cancelText: "Cancel",
+              customText: "Discard & Fetch Latest",
+              onCustomClick: triggerReload,
+            });
+            if (!ok) return;
+          }
+        }
+
+        // Always compile fresh content for save to ensure we have the latest version
+        let pdfContent: PDFContent | null = null;
+        const typstInstance = $typst;
+        if (!typstInstance || !isTypstReady) {
+          return;
+        }
+        if (typstInstance) {
+          try {
+            pdfContent = await compileAsync(contentRef.current);
+          } catch (compileError) {
+            console.error("Compilation failed during save:", compileError);
+            pdfContent = null;
+          }
+        }
+
+        const updatedProjectDetails = await saveProjectFile(
+          projectId,
+          typPath,
+          contentRef.current,
+          pdfContent || undefined
+        );
+        setLastSaved(new Date(updatedProjectDetails?.updated_at!));
+        setHasChanges(false);
+      } catch {
+        showToast.error("Failed to save.");
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [
+      typPath,
+      canEdit,
+      isTypstReady,
+      compileAsync,
+      projectId,
+      lastSaved,
+      hasChanges,
+    ]
+  );
 
   const handleExport = async () => {
     const typstInstance = $typst;

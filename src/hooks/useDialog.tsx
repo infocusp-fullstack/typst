@@ -25,6 +25,8 @@ type ConfirmOptions = {
   description?: string;
   confirmText?: string;
   cancelText?: string;
+  customText?: string;
+  onCustomClick?: () => void;
   destructive?: boolean;
 };
 
@@ -36,6 +38,8 @@ type PromptOptions = {
   defaultValue?: string;
   confirmText?: string;
   cancelText?: string;
+  customText?: string;
+  onCustomClick?: () => void;
   required?: boolean;
   validate?: (value: string) => string | undefined;
 };
@@ -104,6 +108,14 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
     closeAll();
   };
 
+  const onCustomClick = () => {
+    confirmResolverRef.current?.(false);
+    closeAll();
+    if (confirmState.options.onCustomClick) {
+      confirmState.options.onCustomClick();
+    }
+  };
+
   const onPromptCancel = () => {
     promptResolverRef.current?.(null);
     closeAll();
@@ -161,6 +173,16 @@ export function DialogProvider({ children }: { children: React.ReactNode }) {
             >
               {confirmState.options.confirmText ?? "Continue"}
             </Button>
+            {confirmState.options?.customText && (
+              <Button
+                onClick={onCustomClick}
+                variant={
+                  confirmState.options.destructive ? "destructive" : "default"
+                }
+              >
+                {confirmState.options.customText}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
