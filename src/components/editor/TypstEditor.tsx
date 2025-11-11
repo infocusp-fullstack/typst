@@ -207,7 +207,7 @@ export default function TypstEditor({
   const checkContentOverride = async () => {
     const lastProjectDetails = await fetchUserProjectById(projectId);
     if (
-      JSON.stringify(new Date(lastProjectDetails?.updated_at!)) !==
+      JSON.stringify(new Date(lastProjectDetails?.updated_at as string)) !==
       JSON.stringify(lastSaved)
     ) {
       setIsSaving(false);
@@ -260,7 +260,7 @@ export default function TypstEditor({
           contentRef.current,
           pdfContent || undefined
         );
-        setLastSaved(new Date(updatedProjectDetails?.updated_at!));
+        setLastSaved(new Date(updatedProjectDetails?.updated_at as string));
         setHasChanges(false);
       } catch {
         showToast.error("Failed to save.");
