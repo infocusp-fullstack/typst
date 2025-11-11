@@ -204,10 +204,11 @@ export default function TypstEditor({
     debouncedCompile(newDoc);
   };
 
+  // Temporary implementation. Once Supabase Realtime is integrated, this logic can be removed.
   const checkContentOverride = async () => {
-    const lastProjectDetails = await fetchUserProjectById(projectId);
+    const lastestProjectDetails = await fetchUserProjectById(projectId);
     if (
-      JSON.stringify(new Date(lastProjectDetails?.updated_at as string)) !==
+      JSON.stringify(new Date(lastestProjectDetails?.updated_at as string)) !==
       JSON.stringify(lastSaved)
     ) {
       setIsSaving(false);
@@ -227,9 +228,9 @@ export default function TypstEditor({
           const areChangesConflicting = await checkContentOverride();
           if (areChangesConflicting) {
             const ok = await confirm({
-              title: "Override Changes?",
+              title: "Are you sure you want to override?",
               description:
-                "The resume content has modified by someone else. Are you sure you want to override those changes?",
+                "The content has been modified by another user. Proceeding will remove their updates. Do you wish to continue?",
               confirmText: "Override",
               cancelText: "Cancel",
               customText: "Discard & Fetch Latest",
