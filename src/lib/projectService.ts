@@ -352,7 +352,7 @@ export async function saveProjectFile(
   typPath: string,
   code: string,
   pdfContent?: PDFContent
-): Promise<void> {
+): Promise<Project | null> {
   try {
     const supabase = getAdminClient();
 
@@ -378,13 +378,14 @@ export async function saveProjectFile(
         );
 
         // Update database with thumbnail path or public URL
-        const { error: thumbnailUpdateError } = await supabase
+        const { data, error: thumbnailUpdateError } = await supabase
           .from("projects")
           .update({
             thumbnail_path: storedPathOrUrl,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", projectId);
+          .eq("id", projectId)
+          .select();
 
         if (thumbnailUpdateError) {
           console.error(
@@ -392,6 +393,7 @@ export async function saveProjectFile(
             thumbnailUpdateError
           );
         }
+        return data && data.length > 0 ? (data[0] as Project) : null;
       } catch (thumbnailError) {
         console.error("Thumbnail generation failed:", thumbnailError);
       }
@@ -399,6 +401,7 @@ export async function saveProjectFile(
   } catch (error) {
     throw error;
   }
+  return null;
 }
 
 /* ---------- Rename project ---------- */
