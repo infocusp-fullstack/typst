@@ -203,7 +203,7 @@ export async function fetchUserProjectById(
       .from("projects")
       .select("*")
       .eq("id", projectId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       throw new Error(`Failed to fetch project: ${error.message}`);
