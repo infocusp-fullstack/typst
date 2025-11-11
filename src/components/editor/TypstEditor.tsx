@@ -206,9 +206,9 @@ export default function TypstEditor({
 
   // Temporary implementation. Once Supabase Realtime is integrated, this logic can be removed.
   const checkContentOverride = async () => {
-    const lastestProjectDetails = await fetchUserProjectById(projectId);
+    const latestProjectDetails = await fetchUserProjectById(projectId);
     if (
-      JSON.stringify(new Date(lastestProjectDetails?.updated_at as string)) !==
+      JSON.stringify(new Date(latestProjectDetails?.updated_at as string)) !==
       JSON.stringify(lastSaved)
     ) {
       setIsSaving(false);
