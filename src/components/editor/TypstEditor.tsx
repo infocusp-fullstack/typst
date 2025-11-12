@@ -211,7 +211,6 @@ export default function TypstEditor({
       JSON.stringify(new Date(latestProjectDetails?.updated_at as string)) !==
       JSON.stringify(lastSaved)
     ) {
-      setIsSaving(false);
       return true;
     }
     return false;
@@ -236,7 +235,10 @@ export default function TypstEditor({
               customText: "Discard & Fetch Latest",
               onCustomClick: triggerReload,
             });
-            if (!ok) return;
+            if (!ok) {
+              setIsSaving(false);
+              return;
+            }
           }
         }
 
