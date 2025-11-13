@@ -30,10 +30,10 @@
       http://localhost:3000/dashboard
       ```
 
-5. Create .env by copying content from the .env.example. Populate content with your new settings
+5. Create .env by copying content from the `env.example`. Populate content with your new settings
 
    ```bash
-   cp .env.example .env
+   cp env.example .env
    ```
 
 6. Run `pnpm install` and `pnpm dev`

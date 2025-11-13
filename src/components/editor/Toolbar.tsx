@@ -109,7 +109,7 @@ export const Toolbar = memo(function Toolbar({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onSave}
+            onClick={() => onSave()}
             disabled={isSaving || !hasUnsavedChanges || !canSave}
           >
             <Save className="mr-2 h-4 w-4" />
