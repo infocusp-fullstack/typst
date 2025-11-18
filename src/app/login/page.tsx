@@ -1,16 +1,19 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Login from "@/components/Login"; // Adjust path as needed
 import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const params = useSearchParams();
+
+  const redirectTo = params.get("redirectTo") || "/dashboard";
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push("/dashboard");
+      router.push(redirectTo);
     }
   }, [user, isLoading, router]);
 
@@ -26,5 +29,5 @@ export default function LoginPage() {
     return null;
   }
 
-  return <Login />;
+  return <Login redirectTo={redirectTo} />;
 }

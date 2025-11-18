@@ -304,3 +304,40 @@ export async function canViewProject(
     return false;
   }
 }
+
+export async function getProjectByUsername(
+  userEmail: string
+): Promise<string | undefined> {
+  const supabase = getAdminClient();
+
+  const { data, error } = await supabase.auth.admin.listUsers();
+  if (error) {
+    console.error("Error verifying user");
+    return;
+  }
+
+  const requiredUserEmail = `${userEmail.trim()}@infocusp.com`;
+  const user = data.users.find((user) => user.email === requiredUserEmail);
+
+  if (!user || !user?.id) {
+    return;
+  }
+
+  const { data: projects, error: projectError } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("user_id", user?.id);
+
+  if (projectError) {
+    console.error(`Error fetching projects: ${projectError.message}`);
+    return;
+  }
+
+  if (!projects || projects.length == 0) {
+    return;
+  }
+
+  // Currently, each user can have only one project
+  // If we later support multiple projects, determine which project the user should be redirected to
+  return projects[0].id;
+}
