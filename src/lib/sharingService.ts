@@ -306,21 +306,20 @@ export async function canViewProject(
 }
 
 export async function getProjectByUsername(
-  userEmail: string
+  username: string
 ): Promise<string | undefined> {
   const supabase = getAdminClient();
 
   const { data, error } = await supabase.auth.admin.listUsers();
   if (error) {
-    console.error("Error verifying user");
-    return;
+    throw new Error("Error verifying user");
   }
 
-  const requiredUserEmail = `${userEmail.trim()}@infocusp.com`;
+  const requiredUserEmail = `${username.trim()}@infocusp.com`;
   const user = data.users.find((user) => user.email === requiredUserEmail);
 
   if (!user || !user?.id) {
-    return;
+    throw new Error("User not found");
   }
 
   const { data: projects, error: projectError } = await supabase
@@ -329,15 +328,14 @@ export async function getProjectByUsername(
     .eq("user_id", user?.id);
 
   if (projectError) {
-    console.error(`Error fetching projects: ${projectError.message}`);
-    return;
+    throw new Error("Error fetching projects");
   }
 
   if (!projects || projects.length == 0) {
-    return;
+    throw new Error(`No resume found for ${username}`);
   }
 
   // Currently, each user can have only one project
   // If we later support multiple projects, determine which project the user should be redirected to
-  return projects[0].id;
+  return projects[0].id as string;
 }

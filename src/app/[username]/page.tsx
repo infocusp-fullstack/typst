@@ -6,12 +6,15 @@ import RedirectToEditor from "@/components/RedirectToEditor";
 import { useAuth } from "@/hooks/useAuth";
 import { getProjectByUsername } from "@/lib/sharingService";
 import { Loader2 } from "lucide-react";
+import showToast from "@/lib/toast";
+import { useRef } from "react";
 
 export default function Page() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const params = useParams<{ username: string }>();
   const [projectId, setProjectId] = useState<string | undefined>();
+  const errorShown = useRef<boolean>(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -32,9 +35,18 @@ export default function Page() {
         }
         setProjectId(projectId);
       } catch (error) {
-        console.error("Error while fetching project:", error);
+        if (!errorShown.current) {
+          errorShown.current = true;
+          showToast.error(
+            error instanceof Error
+              ? error.message
+              : "Unable to load, please try again"
+          );
+        }
+        router.replace("/dashboard");
       }
     };
+
     fetchProjectId();
   }, [user, isLoading, router]);
 
