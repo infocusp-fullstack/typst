@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import RedirectToEditor from "@/components/RedirectToEditor";
 import { useAuth } from "@/hooks/useAuth";
-import { getProjectByUsername } from "@/lib/sharingService";
+import { getResumeByUsername } from "@/lib/sharingService";
 import { Loader2 } from "lucide-react";
 import showToast from "@/lib/toast";
 import { useRef } from "react";
@@ -14,35 +14,33 @@ export default function Page() {
   const router = useRouter();
   const params = useParams<{ username: string }>();
   const [projectId, setProjectId] = useState<string | undefined>();
-  const errorShown = useRef<boolean>(false);
+  const projectFetched = useRef<boolean>(false);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || projectFetched.current) return;
 
     if (!user) {
       router.replace(
-        `/login?redirectTo=${encodeURIComponent(params.username)}`
+        `/login?redirectTo=${encodeURIComponent(`/resumes/${params.username}`)}`
       );
       return;
     }
 
     const fetchProjectId = async () => {
+      projectFetched.current = true;
       try {
-        const projectId = await getProjectByUsername(params.username);
+        const projectId = await getResumeByUsername(params.username);
         if (!projectId) {
           router.push("/dashboard");
           return;
         }
         setProjectId(projectId);
       } catch (error) {
-        if (!errorShown.current) {
-          errorShown.current = true;
-          showToast.error(
-            error instanceof Error
-              ? error.message
-              : "Unable to load, please try again"
-          );
-        }
+        showToast.error(
+          error instanceof Error
+            ? error.message
+            : "Unable to load, please try again"
+        );
         router.replace("/dashboard");
       }
     };

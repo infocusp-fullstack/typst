@@ -305,7 +305,7 @@ export async function canViewProject(
   }
 }
 
-export async function getProjectByUsername(
+export async function getResumeByUsername(
   username: string
 ): Promise<string | undefined> {
   const supabase = getAdminClient();
@@ -325,7 +325,8 @@ export async function getProjectByUsername(
   const { data: projects, error: projectError } = await supabase
     .from("projects")
     .select("*")
-    .eq("user_id", user?.id);
+    .eq("user_id", user?.id)
+    .eq("project_type", "resume");
 
   if (projectError) {
     throw new Error("Error fetching projects");

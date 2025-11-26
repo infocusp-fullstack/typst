@@ -5,27 +5,16 @@ import { Loader2 } from "lucide-react";
 
 interface RedirectToEditorProps {
   projectId?: string;
-  redirectTo?: string;
-  isLoginRedirect?: boolean;
 }
 
-export default function RedirectToEditor({
-  projectId,
-  redirectTo,
-  isLoginRedirect,
-}: RedirectToEditorProps) {
+export default function RedirectToEditor({ projectId }: RedirectToEditorProps) {
   const router = useRouter();
 
   useEffect(() => {
-    if (isLoginRedirect) {
-      router.replace(redirectTo!);
-      return;
-    }
-
     if (projectId) {
       router.replace(`/editor/${projectId}`);
     }
-  }, [projectId, redirectTo, isLoginRedirect]);
+  }, [projectId]);
 
   return (
     <div className="flex items-center justify-center h-screen w-screen">
