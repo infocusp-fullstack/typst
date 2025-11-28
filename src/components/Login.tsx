@@ -18,7 +18,7 @@ import Logo from "@/components/Logo";
 // type MessageType = "idle" | "success" | "error" | "info";
 // type LoadingState = "idle" | "busy" | "success" | "error";
 
-export default function Login() {
+export default function Login({ redirectTo }: { redirectTo: string }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { signInWithMagicLink, signInWithGoogle } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -93,7 +93,7 @@ export default function Login() {
     setGoogleLoading(true);
 
     try {
-      const { error } = await signInWithGoogle();
+      const { error } = await signInWithGoogle(redirectTo);
 
       if (error) {
         showToast.error("Google sign-in failed. Please try again.");

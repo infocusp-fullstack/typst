@@ -304,3 +304,39 @@ export async function canViewProject(
     return false;
   }
 }
+
+export async function getResumeByUsername(
+  username: string
+): Promise<string | undefined> {
+  const supabase = getAdminClient();
+
+  const { data, error } = await supabase.auth.admin.listUsers();
+  if (error) {
+    throw new Error("Error verifying user");
+  }
+
+  const requiredUserEmail = `${username.trim()}@infocusp.com`;
+  const user = data.users.find((user) => user.email === requiredUserEmail);
+
+  if (!user || !user?.id) {
+    throw new Error("User not found");
+  }
+
+  const { data: projects, error: projectError } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("user_id", user?.id)
+    .eq("project_type", "resume");
+
+  if (projectError) {
+    throw new Error("Error fetching projects");
+  }
+
+  if (!projects || projects.length == 0) {
+    throw new Error(`No resume found for ${username}`);
+  }
+
+  // Currently, each user can have only one project
+  // If we later support multiple projects, determine which project the user should be redirected to
+  return projects[0].id as string;
+}
