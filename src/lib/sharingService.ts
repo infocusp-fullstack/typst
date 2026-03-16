@@ -310,7 +310,10 @@ export async function getResumeByUsername(
 ): Promise<string | undefined> {
   const supabase = getAdminClient();
 
-  const { data, error } = await supabase.auth.admin.listUsers();
+  const { data, error } = await supabase.auth.admin.listUsers({
+    page: 1,
+    perPage:1000,
+  });
   if (error) {
     throw new Error("Error verifying user");
   }
