@@ -270,17 +270,19 @@ export const PreviewPane = memo(function PreviewPane({
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]">
-        <div
-          ref={containerRef}
-          className="flex flex-col items-center pb-8 pt-4"
-          style={{
-            transform: `scale(${scale})`,
-            transformOrigin: "top center",
-            transition: "transform 0.25s ease-in-out",
-          }}
-        />
-      </div>
+<div className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]">
+  <div className="flex justify-center pb-8 pt-4">
+    <div
+      ref={containerRef}
+      style={{
+        transform: `scale(${scale})`,
+        transformOrigin: "top center",
+        width: `${100 / scale}%`,
+        transition: "transform 0.25s ease-in-out",
+      }}
+    />
+  </div>
+</div>
     </div>
   );
 });
