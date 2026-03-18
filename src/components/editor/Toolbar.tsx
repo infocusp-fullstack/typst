@@ -3,11 +3,18 @@
 import { memo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Save, Download, Sun, Moon, Share2 } from "lucide-react";
-import { ShareModal } from "./ShareModal";
+import dynamic from "next/dynamic";
 import { User } from "@supabase/supabase-js";
 import { TruncateWithTooltip } from "@/components/ui/TruncateWithTooltip";
 import Link from "next/link";
 import Logo from "@/components/Logo";
+
+const ShareModal = dynamic(
+  () => import("./ShareModal").then((m) => m.ShareModal),
+  {
+    ssr: false,
+  }
+);
 
 export const Toolbar = memo(function Toolbar({
   projectTitle,
@@ -24,6 +31,8 @@ export const Toolbar = memo(function Toolbar({
   projectId,
   user,
   isOwner,
+  isBusy,
+  canSave,
 }: {
   projectTitle?: string;
   isSaving: boolean;
@@ -39,6 +48,8 @@ export const Toolbar = memo(function Toolbar({
   projectId: string;
   user: User;
   isOwner: boolean;
+  isBusy?: boolean;
+  canSave?: boolean;
 }) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
@@ -57,65 +68,57 @@ export const Toolbar = memo(function Toolbar({
             <span className="hidden xs:inline">Back</span>
           </Button>
 
-          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-            <Link
-              href="/"
-              prefetch
-              className="flex items-center gap-1 sm:gap-2 shrink-0"
-            >
-              <Logo size="sm" />
-              <span className="font-semibold text-sm sm:text-base hidden sm:inline">
-                Infocusp Resume
-              </span>
-              <span className="font-semibold text-sm sm:hidden">Resume</span>
-            </Link>
-            {projectTitle && (
-              <>
-                <span className="text-muted-foreground hidden sm:inline">
-                  •
-                </span>
-                <TruncateWithTooltip<HTMLSpanElement> tooltip={projectTitle}>
-                  {({ ref }) => (
-                    <span
-                      ref={ref}
-                      className="text-xs sm:text-sm truncate max-w-[120px] sm:max-w-xs overflow-hidden whitespace-nowrap"
-                    >
-                      {projectTitle}
-                    </span>
-                  )}
-                </TruncateWithTooltip>
-              </>
-            )}
-          </div>
+        <div className="flex items-center gap-2">
+          <Link href="/" prefetch={false} className="flex items-center gap-2">
+            <Logo size="sm" />
+            <span className="font-semibold">Infocusp Resumes</span>
+          </Link>
+          {projectTitle && (
+            <>
+              <span className="text-muted-foreground">•</span>
+              <TruncateWithTooltip<HTMLSpanElement> tooltip={projectTitle}>
+                {({ ref }) => (
+                  <span
+                    ref={ref}
+                    className="text-sm truncate max-w-xs overflow-hidden whitespace-nowrap"
+                  >
+                    {projectTitle}
+                  </span>
+                )}
+              </TruncateWithTooltip>
+            </>
+          )}
+        </div>
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-1 sm:gap-2 ml-auto">
-          {/* Status indicators - hidden on very small screens */}
-          <div className="hidden md:flex items-center gap-2">
-            {lastSaved && !hasUnsavedChanges && (
-              <span className="text-xs text-muted-foreground">
-                Saved {lastSaved.toLocaleTimeString()}
-              </span>
-            )}
-            {isSaving && (
-              <span className="text-xs text-muted-foreground flex items-center gap-1">
-                <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-current" />
-                Saving...
-              </span>
-            )}
-            {hasUnsavedChanges && (
-              <span className="text-xs text-destructive">● Unsaved</span>
-            )}
-          </div>
+        <div className="flex-1" />
 
-          {/* Action buttons */}
+        <div className="flex items-center gap-2">
+          {lastSaved && !hasUnsavedChanges && (
+            <span className="text-xs text-muted-foreground">
+              Saved {lastSaved.toLocaleTimeString()}
+            </span>
+          )}
+          {isSaving && (
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+              <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-current" />
+            </span>
+          )}
+          {hasUnsavedChanges && (
+            <span className="text-xs text-destructive">● Unsaved</span>
+          )}
+
+          {isBusy && (
+            <span className="text-xs text-muted-foreground flex items-center">
+              <div className="h-3 w-3 animate-spin rounded-full border-b-2 border-current" />
+            </span>
+          )}
+
           <Button
             variant="ghost"
             size="sm"
-            onClick={onSave}
-            disabled={isSaving || !hasUnsavedChanges}
-            className="shrink-0"
+            onClick={() => onSave()}
+            disabled={isSaving || !hasUnsavedChanges || !canSave}
           >
             <Save className="mr-1 sm:mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Save</span>

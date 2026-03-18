@@ -13,7 +13,7 @@ import {
 } from "@/lib/thumbnailService";
 import { loadTemplateFromStorage } from "@/lib/templateService";
 
-const DEFAULT_CONTENT = ``;
+const DEFAULT_CONTENT = `= Hello, world!`;
 const PAGE_SIZE = 20;
 
 /* ---------- Fetch user projects with pagination and filtering ---------- */
@@ -21,7 +21,7 @@ export async function fetchUserProjects(
   page: number = 0,
   pageSize: number = PAGE_SIZE,
   filter: FilterType = "owned",
-  userId: string,
+  userId: string
 ): Promise<{
   projects: ProjectWithShares[];
   hasMore: boolean;
@@ -49,7 +49,7 @@ export async function fetchUserProjects(
           *,
           project_shares!inner(shared_with)
         `,
-          { count: "exact" },
+          { count: "exact" }
         )
         .eq("project_shares.shared_with", userId)
         .order("updated_at", { ascending: false })
@@ -62,7 +62,6 @@ export async function fetchUserProjects(
       query = supabase
         .from("projects")
         .select("*", { count: "exact" })
-        .eq("project_type", "resume")
         .order("updated_at", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
     } else {
@@ -109,7 +108,7 @@ export async function searchUserProjects(
   page: number = 0,
   pageSize: number = PAGE_SIZE,
   filter: FilterType = "owned",
-  userId: string,
+  userId: string
 ): Promise<{
   projects: ProjectWithShares[];
   hasMore: boolean;
@@ -138,7 +137,7 @@ export async function searchUserProjects(
           *,
           project_shares!inner(shared_with)
         `,
-          { count: "exact" },
+          { count: "exact" }
         )
         .eq("project_shares.shared_with", userId)
         .ilike("title", `%${searchQuery.trim()}%`)
@@ -153,7 +152,6 @@ export async function searchUserProjects(
       query = supabase
         .from("projects")
         .select("*", { count: "exact" })
-        .eq("project_type", "resume")
         .ilike("title", `%${searchQuery.trim()}%`)
         .order("updated_at", { ascending: false })
         .range(page * pageSize, (page + 1) * pageSize - 1);
@@ -197,7 +195,7 @@ export async function searchUserProjects(
 }
 
 export async function fetchUserProjectById(
-  projectId: string,
+  projectId: string
 ): Promise<Project | null> {
   try {
     const supabase = getAdminClient();
@@ -205,7 +203,7 @@ export async function fetchUserProjectById(
       .from("projects")
       .select("*")
       .eq("id", projectId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       throw new Error(`Failed to fetch project: ${error.message}`);
@@ -221,7 +219,7 @@ export async function createProjectFromTemplate(
   userId: string,
   title: string,
   template: Template,
-  projectType: "resume" | "document" = "document",
+  projectType: "resume" | "document" = "document"
 ): Promise<Project> {
   const projectId = crypto.randomUUID();
   const typPath = `${userId}/${projectId}/main.typ`;
@@ -303,7 +301,7 @@ export async function loadProjectFile(path: string): Promise<string> {
 /* ---------- Create new project with initial file ---------- */
 export async function createNewProject(
   userId: string,
-  title: string = "Untitled Document",
+  title: string = "Untitled Document"
 ): Promise<Project> {
   try {
     const projectId = crypto.randomUUID();
@@ -353,8 +351,8 @@ export async function saveProjectFile(
   projectId: string,
   typPath: string,
   code: string,
-  pdfContent?: PDFContent,
-): Promise<void> {
+  pdfContent?: PDFContent
+): Promise<Project | null> {
   try {
     const supabase = getAdminClient();
 
@@ -376,24 +374,26 @@ export async function saveProjectFile(
         const thumbnailPath = `${typPath.replace(".typ", "_thumb.png")}`;
         const storedPathOrUrl = await generateAndUploadThumbnail(
           pdfContent,
-          thumbnailPath,
+          thumbnailPath
         );
 
         // Update database with thumbnail path or public URL
-        const { error: thumbnailUpdateError } = await supabase
+        const { data, error: thumbnailUpdateError } = await supabase
           .from("projects")
           .update({
             thumbnail_path: storedPathOrUrl,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", projectId);
+          .eq("id", projectId)
+          .select();
 
         if (thumbnailUpdateError) {
           console.error(
             "Failed to update thumbnail path:",
-            thumbnailUpdateError,
+            thumbnailUpdateError
           );
         }
+        return data && data.length > 0 ? (data[0] as Project) : null;
       } catch (thumbnailError) {
         console.error("Thumbnail generation failed:", thumbnailError);
       }
@@ -401,12 +401,13 @@ export async function saveProjectFile(
   } catch (error) {
     throw error;
   }
+  return null;
 }
 
 /* ---------- Rename project ---------- */
 export async function renameProject(
   projectId: string,
-  newTitle: string,
+  newTitle: string
 ): Promise<Project> {
   try {
     const supabase = getAdminClient();
@@ -435,7 +436,7 @@ export async function renameProject(
 export async function deleteProject(
   projectId: string,
   typPath: string,
-  thumbnail_path?: string,
+  thumbnail_path?: string
 ): Promise<void> {
   try {
     const supabase = getAdminClient();

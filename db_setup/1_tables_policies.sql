@@ -4,7 +4,7 @@ FOR INSERT TO authenticated
 WITH CHECK (
     -- Only allow insert if user is the direct owner
     auth.uid() = user_id
-)
+);
 
 CREATE POLICY "SELECT Policy"
 ON projects
@@ -34,7 +34,7 @@ USING (
         FROM project_shares ps
         WHERE ps.project_id = projects.id
           AND ps.shared_with = auth.uid()
-          -- AND ps.permission = 'edit'
+          AND ps.permission = 'edit'
     )
     OR EXISTS (
         SELECT 1
@@ -49,7 +49,7 @@ WITH CHECK (
         FROM project_shares ps
         WHERE ps.project_id = projects.id
           AND ps.shared_with = auth.uid()
-          -- AND ps.permission = 'edit'
+          AND ps.permission = 'edit'
     )
     OR EXISTS (
         SELECT 1
@@ -69,6 +69,7 @@ USING (
         FROM project_shares ps
         WHERE ps.project_id = projects.id
           AND ps.shared_with = auth.uid()
+          AND ps.permission = 'edit'
     )
     OR EXISTS (
         SELECT 1
@@ -89,7 +90,7 @@ FOR INSERT TO authenticated
 WITH CHECK (
     -- Only allow insert if user is the direct owner
     shared_by = auth.uid()
-)
+);
 
 CREATE POLICY "SELECT Policy"
 ON project_shares

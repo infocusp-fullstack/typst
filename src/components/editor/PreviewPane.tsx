@@ -16,9 +16,10 @@ interface PreviewPaneProps {
   totalPages: number;
   onScaleChange: (scale: number) => void;
   onTotalPagesChange: (pages: number) => void;
+  isTypstLoading?: boolean;
 }
 
-export const PreviewPane = memo(function PreviewPane({
+const PreviewPane = memo(function PreviewPane({
   content,
   isCompiling,
   error,
@@ -26,6 +27,7 @@ export const PreviewPane = memo(function PreviewPane({
   totalPages,
   onScaleChange,
   onTotalPagesChange,
+  isTypstLoading = false,
 }: PreviewPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
@@ -223,15 +225,23 @@ export const PreviewPane = memo(function PreviewPane({
       </div>
     );
   }
-
-  if (!content || (typeof content === "string" && content.trim() === "")) {
-    return (
-      <div className="placeholder flex items-center justify-center h-full text-muted-foreground text-sm">
-        Start typing to see your document
-      </div>
-    );
+  
+  if (isTypstLoading || isCompiling) {
+    return <div className="h-full w-full" />;
   }
 
+  // show "start typing" message if there's no content
+  if (!content || (typeof content === "string" && content.trim() === "")) {
+    if (!error) {
+      return (
+        <div className="placeholder flex items-center justify-center h-full text-muted-foreground text-sm">
+          Start typing to see your document
+        </div>
+      );
+    }
+  }
+
+  // Fallback for string content (if any)
   return (
     <div className="flex flex-col h-full w-full">
       {/* Toolbar */}
@@ -286,3 +296,5 @@ export const PreviewPane = memo(function PreviewPane({
     </div>
   );
 });
+
+export default PreviewPane;
