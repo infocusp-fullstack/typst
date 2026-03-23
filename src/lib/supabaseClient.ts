@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Get Supabase URL
+// TODO: implement seperate server client access for supabase. Refer https://supabase.com/docs/guides/auth/server-side/creating-a-client
+
 const getSupabaseUrl = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!url) {
@@ -10,17 +11,6 @@ const getSupabaseUrl = () => {
   return url;
 };
 
-// // Replace the getSupabaseAnonKey function with:
-// const getSupabaseAnonKey = () => {
-//   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-//   if (!key) {
-//     console.warn("NEXT_PUBLIC_SUPABASE_ANON_KEY is not defined");
-//     return "public-anon-key"; // Fallback for development
-//   }
-//   return key;
-// };
-
-// Get service role key for admin operations
 const getServiceRoleKey = () => {
   const key = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
   if (!key) {
@@ -60,28 +50,3 @@ export const getAdminClient = () => {
     throw error;
   }
 };
-
-// Create a single supabase client for the browser
-// let browserClient: ReturnType<typeof createClient> | null = null;
-
-// export const getBrowserClient = () => {
-//   if (browserClient) return browserClient;
-
-//   try {
-//     const supabaseUrl = getSupabaseUrl();
-//     const supabaseAnonKey = getSupabaseAnonKey();
-
-//     browserClient = createClient(supabaseUrl, supabaseAnonKey, {
-//       auth: {
-//         persistSession: true,
-//         autoRefreshToken: true,
-//         detectSessionInUrl: true,
-//       },
-//     });
-
-//     return browserClient;
-//   } catch (error) {
-//     console.error("Error creating Supabase client:", error);
-//     throw error;
-//   }
-// };

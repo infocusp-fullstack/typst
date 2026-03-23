@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model cxo_users {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email      String    @unique
+  role       String    @default("cxo")
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([email], map: "idx_cxo_users_email")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model profiles {
+  id                                                  String           @id @db.Uuid
+  email                                               String
+  full_name                                           String
+  avatar_url                                          String?
+  created_at                                          DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at                                          DateTime        @default(now()) @db.Timestamptz(6)
+  project_shares_project_shares_shared_byToprofiles   project_shares[] @relation("project_shares_shared_byToprofiles")
+  project_shares_project_shares_shared_withToprofiles project_shares[] @relation("project_shares_shared_withToprofiles")
+  projects                                            projects[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model project_shares {
+  id                                            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                                    String?   @db.Uuid
+  shared_by                                     String?   @db.Uuid
+  shared_with                                   String?   @db.Uuid
+  permission                                    String
+  created_at                                    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                                    DateTime? @default(now()) @db.Timestamptz(6)
+  projects                                      projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profiles_project_shares_shared_byToprofiles   profiles? @relation("project_shares_shared_byToprofiles", fields: [shared_by], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  profiles_project_shares_shared_withToprofiles profiles? @relation("project_shares_shared_withToprofiles", fields: [shared_with], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, shared_with])
+  @@index([project_id], map: "idx_project_shares_project_id")
+  @@index([shared_by], map: "idx_project_shares_shared_by")
+  @@index([shared_with], map: "idx_project_shares_shared_with")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model projects {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String          @db.Uuid
+  title          String
+  typ_path       String
+  thumbnail_path String?
+  project_type   String           @default("document")
+  template_id    String?          @db.Uuid
+  created_at     DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime        @default(now()) @db.Timestamptz(6)
+  project_shares project_shares[]
+  owner       profiles        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model templates {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title             String
+  description       String?
+  content           String?
+  storage_path      String
+  preview_image_url String?
+  category          String    @default("resume")
+  is_active         Boolean   @default(true)
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([is_active], map: "idx_templates_active")
+  @@index([category], map: "idx_templates_category")
+}

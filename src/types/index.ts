@@ -5,8 +5,8 @@ export type Project = {
   typ_path: string;
   project_type: "document" | "resume";
   template_id?: string;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
   thumbnail_path?: string;
 };
 
@@ -19,8 +19,8 @@ export type Template = {
   preview_image_url: string | null;
   category: string;
   is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
 };
 
 export type ProjectShare = {
@@ -29,19 +29,19 @@ export type ProjectShare = {
   shared_by: string;
   shared_with: string;
   permission: "read" | "edit";
-  created_at: string;
-  updated_at: string;
+  created_at: Date;
+  updated_at: Date;
 };
 
 export type User = {
   id: string;
   email: string;
-  name?: string;
-  created_at: string;
+  full_name: string;
+  created_at: Date;
 };
 
 export type ProjectWithShares = Project & {
-  project_shares?: [{ shared_with: string }];
+  project_shares?: { shared_with: string | null }[]
   shares?: ProjectShare[];
   owner?: User;
   shared_by?: User;

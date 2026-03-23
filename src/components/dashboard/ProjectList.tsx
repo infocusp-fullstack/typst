@@ -145,7 +145,7 @@ const ProjectList = React.memo(
                   ) : (
                     <Share2 className="h-4 w-4" />
                   )}
-                  <span>{isOwner ? "You" : "Shared"}</span>
+                  <span>{isOwner ? "You" : project.owner?.full_name}</span>
                 </div>
               </Link>
             </TableCell>
@@ -154,7 +154,7 @@ const ProjectList = React.memo(
             <TableCell className="w-[25%] align-middle">
               <Link href={`/editor/${project.id}`} prefetch className="block">
                 <span className="text-sm text-muted-foreground">
-                  {formatDate(project.updated_at)}
+                  {formatDate(project.updated_at.toString())}
                 </span>
               </Link>
             </TableCell>

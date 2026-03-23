@@ -1,5 +1,6 @@
 import { Template } from "@/types";
 import { getAdminClient } from "./supabaseClient";
+import prisma from "./prisma";
 
 export async function loadTemplateFromStorage(
   storagePath: string,
@@ -35,13 +36,14 @@ export async function loadTemplateFromStorage(
 
 export async function fetchAvailableTemplates(): Promise<Template[]> {
   const supabase = getAdminClient();
-  const { data, error } = await supabase
-    .from("templates")
-    .select("*")
-    .eq("is_active", true)
-    .order("created_at", { ascending: true });
-
-  if (error) throw new Error(error.message);
+  const data = await prisma.templates.findMany({
+    where:{
+      is_active: true
+    },
+    orderBy:{
+      created_at: 'asc'
+    }
+  })
   return data as Template[];
 }
 
@@ -70,25 +72,20 @@ export async function setupNewTemplate(
     throw new Error(`Upload failed: ${uploadError.message}`);
   }
 
-  const { data, error: insertError } = await supabase
-    .from("templates")
-    .insert([
-      {
+  try{
+    const data = await prisma.templates.create({
+      data:{
         title,
         description,
         storage_path: storagePath,
         category: safeCategory,
         is_active: true,
-      },
-    ])
-    .select()
-    .single();
-
-  if (insertError) {
+      }
+    })
+    const content = await loadTemplateFromStorage(storagePath);
+    return { ...data, content } as Template;
+  } catch(error){
     await supabase.storage.from("user-projects").remove([storagePath]);
-    throw new Error(`DB insert failed: ${insertError.message}`);
+    throw new Error(`DB insert failed: ${error}`);
   }
-
-  const content = await loadTemplateFromStorage(storagePath);
-  return { ...data, content } as Template;
 }
