@@ -12,6 +12,7 @@ import {
   deleteThumbnail,
 } from "@/lib/thumbnailService";
 import { loadTemplateFromStorage } from "@/lib/templateService";
+import {processAndIndexDocument} from '@/lib/searchService'
 
 const DEFAULT_CONTENT = `= Hello, world!`;
 const PAGE_SIZE = 20;
@@ -235,7 +236,7 @@ export async function createProjectFromTemplate(
     });
 
   if (uploadError) throw new Error(uploadError.message);
-
+  
   const { data, error: insertError } = await supabase
     .from("projects")
     .insert([
@@ -252,6 +253,7 @@ export async function createProjectFromTemplate(
     .single();
 
   if (insertError) throw new Error(insertError.message);
+  await processAndIndexDocument(projectId, templateContent);
 
   return data as Project;
 }
@@ -363,10 +365,11 @@ export async function saveProjectFile(
         upsert: true,
         contentType: "text/plain",
       });
-
+    
     if (uploadError) {
       throw new Error(`File upload failed: ${uploadError.message}`);
     }
+    await processAndIndexDocument(projectId, code);
 
     // Generate and upload thumbnail if PDF content is provided
     if (pdfContent) {
