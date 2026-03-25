@@ -56,10 +56,8 @@ export async function search_resumes(
   totalCount: number;
 }> {
   const supabase = getAdminClient();
-  console.log(filter,searchQuery)
-
   let rpcName: string;
-  let params: Record<string, any> = {
+  const params: Record<string, string|number> = {
     search_query: searchQuery,
     page,
     page_size: pageSize,
@@ -84,9 +82,7 @@ export async function search_resumes(
   else {
     throw new Error("Invalid filter type");
   }
-  console.log(params)
   const { data, error } = await supabase.rpc(rpcName, params);
-  console.log(data)
 
   if (error) {
     console.error("Search resumes error:", error);

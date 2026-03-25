@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Project, FilterType } from "@/types";
-import { fetchUserProjects, searchUserProjects } from "@/lib/projectService";
+import { fetchUserProjects } from "@/lib/projectService";
 import { search_resumes } from "@/lib/searchService";
 
 interface UseInfiniteScrollOptions {
