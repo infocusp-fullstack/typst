@@ -1,10 +1,11 @@
-import { getAdminClient } from "./supabaseClient";
+'use server';
+import { getAdminClient } from "./supabaseServer";
 import { ProjectShare, User, SharePermission } from "@/types";
 
 // Check if user is a CXO (has access to view all resumes)
 export async function isCXOUser(userId: string): Promise<boolean> {
   try {
-    const supabase = getAdminClient();
+    const supabase = await getAdminClient();
 
     // First get the user's email
     const { data: userData, error: userError } =
@@ -37,7 +38,7 @@ export async function isCXOUser(userId: string): Promise<boolean> {
 export async function isCXOByEmail(email?: string | null): Promise<boolean> {
   try {
     if (!email) return false;
-    const supabase = getAdminClient();
+    const supabase = await getAdminClient();
     const { data, error } = await supabase
       .from("cxo_users")
       .select("id")
@@ -120,7 +121,7 @@ export async function unshareProject(
   sharedWith: string
 ): Promise<void> {
   try {
-    const supabase = getAdminClient();
+    const supabase = await getAdminClient();
 
     const { error } = await supabase
       .from("project_shares")
@@ -139,7 +140,7 @@ export async function getProjectShares(
   projectId: string
 ): Promise<(ProjectShare & { user?: User })[]> {
   try {
-    const supabase = getAdminClient();
+    const supabase = await getAdminClient();
 
     const { data, error } = await supabase
       .from("project_shares")
@@ -188,7 +189,7 @@ export async function searchUsers(
   options?: { excludeUserIds?: string[] }
 ): Promise<User[]> {
   try {
-    const supabase = getAdminClient();
+    const supabase = await getAdminClient();
 
     // Query all users from auth.users
     const { data, error } = await supabase.auth.admin.listUsers({
@@ -239,7 +240,7 @@ export async function canEditProject(
   projectOwnerId?: string
 ): Promise<boolean> {
   try {
-    const supabase = getAdminClient();
+    const supabase = await getAdminClient();
 
     // Short-circuit if ownerId already known
     if (projectOwnerId && projectOwnerId === userId) return true;
@@ -276,7 +277,7 @@ export async function canViewProject(
   projectOwnerId?: string
 ): Promise<boolean> {
   try {
-    const supabase = getAdminClient();
+    const supabase = await getAdminClient();
 
     // Short-circuit if ownerId already known
     if (projectOwnerId && projectOwnerId === userId) return true;
