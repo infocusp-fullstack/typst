@@ -59,7 +59,7 @@ export async function shareProject(
   updatedPermission: SharePermission
 ): Promise<ProjectShare> {
   try {
-    const supabase = await await getAdminClient();
+    const supabase = await getAdminClient();
 
     const {
       data: { user },
