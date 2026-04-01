@@ -38,7 +38,7 @@ export async function isCXOUser(userId: string): Promise<boolean> {
 export async function isCXOByEmail(email?: string | null): Promise<boolean> {
   try {
     if (!email) return false;
-    const supabase = await await getAdminClient();
+    const supabase = await getAdminClient();
     const { data, error } = await supabase
       .from("cxo_users")
       .select("id")
