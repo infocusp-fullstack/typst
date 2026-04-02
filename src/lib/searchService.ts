@@ -7,7 +7,7 @@ import { isCXOUser } from "@/lib/sharingService";
 
 const PAGE_SIZE = 20;
 
-function chunkText(text: string, chunkSize = 1000, overlap = 100) {
+function chunkText(text: string, chunkSize = 200, overlap = 10) {
   const words = text.split(/\s+/);
   const chunks: string[] = [];
 

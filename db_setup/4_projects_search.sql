@@ -23,7 +23,15 @@ language plpgsql
 as $$
 declare
   result jsonb;
+  query tsquery;
 begin
+  query := regexp_replace(
+    websearch_to_tsquery('english', search_query)::text, 
+    '''(?=\s|&|\||!|<->|$)', 
+    ''':*',
+    'g'
+  )::tsquery;
+
   select jsonb_build_object(
     'projects', coalesce(jsonb_agg(row_to_json(p)), '[]'::jsonb),
     'total_count', coalesce(max(p.total_count), 0)
@@ -31,30 +39,35 @@ begin
   into result
   from (
     select 
-      p.id,
-      p.title,
-      p.typ_path,
-      p.thumbnail_path,
-      p.project_type,
-      p.template_id,
-      p.user_id,
-      p.created_at,
-      p.updated_at,
+      p.*,
       count(*) over() as total_count
     from (
-      select distinct p.*
+      select distinct 
+        p.*,
+        (
+          select array_agg(snippet)
+          from (
+            select ts_headline(
+              'english',
+              s.chunk,
+              query,
+              'StartSel=<mark>, StopSel=</mark>, MaxFragments=2'
+            ) as snippet
+            from projects_search s
+            where s.project_id = p.id
+            and s.fts @@ query
+            order by ts_rank(s.fts, query) desc
+            limit 3
+          ) t
+        ) as snippets
+
       from projects p
       inner join project_shares ps 
         on ps.project_id = p.id
         and ps.shared_with = curr_user
       inner join projects_search s 
         on s.project_id = p.id
-      where s.fts @@ regexp_replace(
-        websearch_to_tsquery('english', search_query)::text, 
-        '''(?=\s|&|\||!|<->|$)', 
-        ''':*',                  
-        'g'
-      )::tsquery
+      where s.fts @@ query
     ) p
     order by p.created_at desc
     limit page_size
@@ -75,7 +88,15 @@ language plpgsql
 as $$
 declare
   result jsonb;
+  query tsquery;
 begin
+  query := regexp_replace(
+    websearch_to_tsquery('english', search_query)::text, 
+    '''(?=\s|&|\||!|<->|$)', 
+    ''':*',
+    'g'
+  )::tsquery;
+
   select jsonb_build_object(
     'projects', coalesce(jsonb_agg(row_to_json(p)), '[]'::jsonb),
     'total_count', coalesce(max(p.total_count), 0)
@@ -83,29 +104,34 @@ begin
   into result
   from (
     select 
-      p.id,
-      p.title,
-      p.typ_path,
-      p.thumbnail_path,
-      p.project_type,
-      p.template_id,
-      p.user_id,
-      p.created_at,
-      p.updated_at,
+      p.*,
       count(*) over() as total_count
     from (
-      select p.*
+      select 
+        p.*,
+        (
+          select array_agg(snippet)
+          from (
+            select ts_headline(
+              'english',
+              s.chunk,
+              query,
+              'StartSel=<mark>, StopSel=</mark>, MaxFragments=2'
+            ) as snippet
+            from projects_search s
+            where s.project_id = p.id
+            and s.fts @@ query
+            order by ts_rank(s.fts, query) desc
+            limit 3
+          ) t
+        ) as snippets
+
       from projects p
       where exists (
         select 1
         from projects_search s
         where s.project_id = p.id
-        and s.fts @@ regexp_replace(
-          websearch_to_tsquery('english', search_query)::text, 
-          '''(?=\s|&|\||!|<->|$)', 
-          ''':*',                  
-          'g'
-        )::tsquery
+        and s.fts @@ query
       )
     ) p
     order by p.created_at desc
@@ -117,7 +143,7 @@ begin
 end;
 $$;
 
-create or replace function search_resumes_own(
+ccreate or replace function search_resumes_own(
   search_query text,
   curr_user uuid,
   page int,
@@ -128,7 +154,15 @@ language plpgsql
 as $$
 declare
   result jsonb;
+  query tsquery;
 begin
+  query := regexp_replace(
+    websearch_to_tsquery('english', search_query)::text, 
+    '''(?=\s|&|\||!|<->|$)', 
+    ''':*',
+    'g'
+  )::tsquery;
+
   select jsonb_build_object(
     'projects', coalesce(jsonb_agg(row_to_json(p)), '[]'::jsonb),
     'total_count', coalesce(max(p.total_count), 0)
@@ -136,30 +170,35 @@ begin
   into result
   from (
     select 
-      p.id,
-      p.title,
-      p.typ_path,
-      p.thumbnail_path,
-      p.project_type,
-      p.template_id,
-      p.user_id,
-      p.created_at,
-      p.updated_at,
+      p.*,
       count(*) over() as total_count
     from (
-      select p.*
+      select 
+        p.*,
+        (
+          select array_agg(snippet)
+          from (
+            select ts_headline(
+              'english',
+              s.chunk,
+              query,
+              'StartSel=<mark>, StopSel=</mark>, MaxFragments=2'
+            ) as snippet
+            from projects_search s
+            where s.project_id = p.id
+            and s.fts @@ query
+            order by ts_rank(s.fts, query) desc
+            limit 3
+          ) t
+        ) as snippets
+
       from projects p
       where p.user_id = curr_user
       and exists (
         select 1
         from projects_search s
         where s.project_id = p.id
-        and s.fts @@ regexp_replace(
-          websearch_to_tsquery('english', search_query)::text, 
-          '''(?=\s|&|\||!|<->|$)', 
-          ''':*',                  
-          'g'
-        )::tsquery
+        and s.fts @@ query
       )
     ) p
     order by p.created_at desc
