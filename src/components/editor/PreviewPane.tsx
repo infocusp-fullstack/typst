@@ -34,24 +34,29 @@ const PreviewPane = memo(function PreviewPane({
     }
   }, [content]);
 
-  if (error) {
-    return (
-      <div className="text-red-500 p-4">
-        <strong>Error:</strong> {error}
-      </div>
-    );
-  }
-
   // pdfUrl + ("#toolbar=0&navpanes=0&scrollbar=1view=FitH&print=0&download=0");
   if (pdfUrl) {
     return (
-      <div className="h-full w-full overflow-hidden">
+      <div className="h-full w-full overflow-hidden relative">
+        {error ? (
+          <div className="absolute top-3 left-3 right-3 z-10 rounded-md border border-red-300 bg-red-50/95 text-red-700 p-2 text-sm shadow-sm">
+            <strong>Error:</strong> {error}
+          </div>
+        ) : null}
         <iframe
           src={pdfUrl}
           className="w-full h-full"
           title="PDF Preview"
           loading="lazy"
         />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-red-500 p-4">
+        <strong>Error:</strong> {error}
       </div>
     );
   }

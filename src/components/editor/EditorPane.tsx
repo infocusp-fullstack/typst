@@ -3,6 +3,15 @@
 import { EditorView } from "@codemirror/view";
 import { useEffect, useRef, useCallback } from "react";
 
+export interface EditorDiagnostic {
+  line: number;
+  column?: number;
+  endLine?: number;
+  endColumn?: number;
+  message: string;
+  severity?: "error" | "warning";
+}
+
 export default function EditorPane({
   initialContent,
   theme,
@@ -10,6 +19,7 @@ export default function EditorPane({
   onSave,
   readOnly = false,
   canSave = true,
+  diagnostics = [],
 }: {
   initialContent: string;
   theme: string;
@@ -17,12 +27,17 @@ export default function EditorPane({
   onSave: () => void;
   readOnly?: boolean;
   canSave?: boolean;
+  diagnostics?: EditorDiagnostic[];
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const didInitRef = useRef(false);
   const onSaveRef = useRef(onSave);
   const onChangeRef = useRef(onChange);
+  const diagnosticsRef = useRef(diagnostics);
+  const diagnosticsDispatchRef = useRef<
+    null | ((nextDiagnostics: EditorDiagnostic[]) => void)
+  >(null);
 
   useEffect(() => {
     onSaveRef.current = onSave;
@@ -31,6 +46,10 @@ export default function EditorPane({
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+
+  useEffect(() => {
+    diagnosticsRef.current = diagnostics;
+  }, [diagnostics]);
 
   const createEditorTheme = useCallback(() => {
     const isDark = theme === "dark";
@@ -102,6 +121,21 @@ export default function EditorPane({
         ".cm-variableName": {
           color: isDark ? "#f8f8f2" : "#111827",
         },
+        ".cm-typst-error-squiggle": {
+          textDecorationLine: "underline",
+          textDecorationStyle: "wavy",
+          textDecorationThickness: "1.5px",
+          textDecorationColor: isDark ? "#ff6b6b" : "#dc2626",
+          textUnderlineOffset: "2px",
+          backgroundColor: isDark
+            ? "rgba(255, 107, 107, 0.12)"
+            : "rgba(220, 38, 38, 0.08)",
+        },
+        ".cm-typst-error-line": {
+          backgroundColor: isDark
+            ? "rgba(255, 107, 107, 0.10)"
+            : "rgba(220, 38, 38, 0.08)",
+        },
       },
       { dark: isDark }
     );
@@ -117,8 +151,9 @@ export default function EditorPane({
       import("@/hooks/typystSyntax"),
     ])
       .then(([viewPkg, statePkg, commandsPkg, typstPkg]) => {
-        const { EditorView, keymap, lineNumbers } = viewPkg;
-        const { EditorState } = statePkg;
+        const { EditorView, keymap, lineNumbers, Decoration } = viewPkg;
+        const { EditorState, StateField, StateEffect, RangeSetBuilder } =
+          statePkg;
         const {
           history,
           historyKeymap,
@@ -155,12 +190,86 @@ export default function EditorPane({
               { key: "Mod-Shift-z", run: redo },
             ];
 
+        const setDiagnosticsEffect = StateEffect.define<EditorDiagnostic[]>();
+        const buildDiagnosticDecorations = (
+          state: typeof EditorState.prototype,
+          nextDiagnostics: EditorDiagnostic[]
+        ) => {
+          const builder = new RangeSetBuilder<typeof Decoration.prototype>();
+
+          for (const diagnostic of nextDiagnostics) {
+            const clampedLine = Math.min(
+              Math.max(1, diagnostic.line || 1),
+              state.doc.lines
+            );
+            const lineInfo = state.doc.line(clampedLine);
+            const startColumn = Math.max((diagnostic.column ?? 1) - 1, 0);
+            const start = Math.min(lineInfo.from + startColumn, lineInfo.to);
+
+            const clampedEndLine = Math.min(
+              Math.max(1, diagnostic.endLine ?? clampedLine),
+              state.doc.lines
+            );
+            const endLineInfo = state.doc.line(clampedEndLine);
+            const endColumn = Math.max(
+              (diagnostic.endColumn ??
+                (clampedEndLine === clampedLine ? diagnostic.column ?? 1 : 1)) -
+                1,
+              0
+            );
+            let end = Math.min(endLineInfo.from + endColumn, endLineInfo.to);
+            if (end <= start && lineInfo.to > lineInfo.from) {
+              end = Math.min(start + 1, lineInfo.to);
+            }
+
+            if (end > start) {
+              builder.add(
+                start,
+                end,
+                Decoration.mark({
+                  class: "cm-typst-error-squiggle",
+                  attributes: { title: diagnostic.message },
+                })
+              );
+            } else {
+              builder.add(
+                lineInfo.from,
+                lineInfo.from,
+                Decoration.line({
+                  class: "cm-typst-error-line",
+                  attributes: { title: diagnostic.message },
+                })
+              );
+            }
+          }
+
+          return builder.finish();
+        };
+
+        const diagnosticsField = StateField.define({
+          create: () => Decoration.none,
+          update: (decorations, transaction) => {
+            let nextDecorations = decorations;
+            if (nextDecorations?.map) {
+              nextDecorations = nextDecorations.map(transaction.changes);
+            }
+            for (const effect of transaction.effects) {
+              if (effect.is(setDiagnosticsEffect)) {
+                return buildDiagnosticDecorations(transaction.state, effect.value);
+              }
+            }
+            return nextDecorations;
+          },
+          provide: (field) => EditorView.decorations.from(field),
+        });
+
         const state = EditorState.create({
           doc: initialContent,
           extensions: [
             lineNumbers(),
             history(),
             typstSyntax(),
+            diagnosticsField,
             keymap.of([...readOnlyKeymap, saveKeymap]),
             updateListener,
             createEditorTheme(),
@@ -173,6 +282,13 @@ export default function EditorPane({
           state,
           parent: editorRef.current!,
         });
+        diagnosticsDispatchRef.current = (nextDiagnostics: EditorDiagnostic[]) => {
+          if (!viewRef.current) return;
+          viewRef.current.dispatch({
+            effects: setDiagnosticsEffect.of(nextDiagnostics),
+          });
+        };
+        diagnosticsDispatchRef.current(diagnosticsRef.current);
 
         didInitRef.current = true;
       })
@@ -184,10 +300,15 @@ export default function EditorPane({
       if (viewRef.current) {
         viewRef.current.destroy();
         viewRef.current = null;
+        diagnosticsDispatchRef.current = null;
         didInitRef.current = false;
       }
     };
   }, [theme, readOnly]);
+
+  useEffect(() => {
+    diagnosticsDispatchRef.current?.(diagnostics);
+  }, [diagnostics]);
 
   return (
     <div
