@@ -11,6 +11,7 @@ create table public.projects_search (
 create index IF not exists projects_search_fts_idx on public.projects_search using gin (fts) TABLESPACE pg_default;
 ALTER TABLE public.projects_search ENABLE ROW LEVEL SECURITY;
 create policy "Enable read access for all users" on "public"."projects_search" as PERMISSIVE for SELECT to public using (true);
+create policy "allow insert" on "public"."projects_search" as PERMISSIVE for INSERT to public with check (true);
 
 create or replace function search_resumes_shared(
   search_query text,
