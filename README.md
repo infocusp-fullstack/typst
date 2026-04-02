@@ -14,6 +14,7 @@
    1. Upload `basic-resume.typ` on `user-projects` bucket in folder `templates/resume/`
    1. Upload `basic-resume.png` on `thumbanils` bucket in folder `templates/basic-resume.png`
    1. Run `create_templates.sql` from db_setup
+   1. Run `projects_search.sql` from db_setup
 3. Create new OAuth 2.0 Client from your google console
    1. Choose Application Type: Web Application
    2. Add Authorized Javascript origin: `http://localhost:3000`
@@ -40,3 +41,11 @@
 7. Visit `http://localhost:3000/login`
 
 The application will automatically redirect you to login if not authenticated, or to the dashboard if you're already signed in.
+8. Add edge function
+  1. In Supabase Dashboard → **Edge Functions → Deploy a new function → via editor**
+  2. paste code from `db_setup/_edgeFunction.ts`
+  3. In bottom-right add name `generate-search-index` and click `Deploy function` next to it
+
+9. Generate Index (if projects exist)
+  1. In Supabase Dashboard → **Edge Functions → generate-search-index**
+  2. Click `test` and `Send Request` in bottom-right
