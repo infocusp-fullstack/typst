@@ -86,7 +86,7 @@ export default function TypstEditor({
         setPreview(pdf);
       } catch (err) {
         console.error("Compilation failed:", err);
-        setError("Compilation failed");
+        setError(`Compilation failed: ${err}`);
         setPreview(null);
       } finally {
         setIsCompiling(false);
@@ -180,7 +180,7 @@ export default function TypstEditor({
           })
           .catch((err) => {
             console.error("Initial compilation failed:", err);
-            setError("Compilation failed");
+            setError(`Compilation failed: ${err.message || err}`);
             setPreview(null);
           })
           .finally(() => {
