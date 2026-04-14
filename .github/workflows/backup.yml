@@ -1,0 +1,79 @@
+name: supabase-backup
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Install Postgres 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg
+          wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Dump database (public schema only)
+        run: |
+          mkdir -p backup
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
+            --schema=public \
+            --no-owner \
+            --no-privileges \
+            -f backup/db.sql
+
+      - name: Export users (Auth)
+        run: |
+          npm init -y
+          npm install @supabase/supabase-js
+
+          node <<EOF
+          const { createClient } = require('@supabase/supabase-js')
+
+          const supabase = createClient(
+            process.env.SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY
+          )
+
+          async function run() {
+            let allUsers = []
+            let page = 1
+
+            while (true) {
+              const { data, error } = await supabase.auth.admin.listUsers({
+                page,
+                perPage: 1000
+              })
+
+              if (error) throw error
+              if (!data.users.length) break
+
+              allUsers.push(...data.users)
+              page++
+            }
+
+            require('fs').writeFileSync(
+              'backup/users.json',
+              JSON.stringify(allUsers, null, 2)
+            )
+          }
+
+          run()
+          EOF
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup
+          path: backup/
