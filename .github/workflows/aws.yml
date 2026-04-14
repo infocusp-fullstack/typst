@@ -64,16 +64,19 @@ jobs:
           access_key_id = ${{ secrets.AWS_S3_KEY }}
           secret_access_key = ${{ secrets.AWS_S3_SECRET }}
           region = ap-south-1
+          location_constraint = ap-south-1
           EOF
 
-      # ✅ Generate timestamp folder
+      # Define bucket + timestamp
       - name: Prepare backup path
         run: |
           DATE=$(date +%F-%H-%M)
-          BACKUP_PATH="typst-backup/$DATE"
+          BUCKET="typst-backup"
+          BACKUP_PATH="$DATE"
+          echo "BUCKET=$BUCKET" >> $GITHUB_ENV
           echo "BACKUP_PATH=$BACKUP_PATH" >> $GITHUB_ENV
 
-      # ✅ Dump database directly to S3 (temp → upload)
+      # Dump database
       - name: Dump database
         run: |
           mkdir -p backup
@@ -88,15 +91,15 @@ jobs:
 
           echo "DUMP_FILE=$DUMP_FILE" >> $GITHUB_ENV
 
-      # ✅ Upload DB dump → dated folder
+      # Upload DB dump
       - name: Upload DB dump
         run: |
-          rclone copy "$DUMP_FILE" new:$BACKUP_PATH/ --progress
+          rclone copy "$DUMP_FILE" new:$BUCKET/$BACKUP_PATH/ --progress
 
-      # ✅ Copy storage → dated folder
+      # Backup storage
       - name: Backup storage
         run: |
-          rclone copy old: new:$BACKUP_PATH/storage/ \
+          rclone copy old: new:$BUCKET/$BACKUP_PATH/storage/ \
             --progress \
             --transfers=8 \
             --checkers=16
