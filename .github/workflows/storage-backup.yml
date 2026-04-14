@@ -1,0 +1,44 @@
+name: Backup Supabase Storage
+
+on:
+  workflow_dispatch: # manual trigger
+  schedule:
+    - cron: "0 2 * * *" # daily at 2 AM UTC
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # ✅ Install rclone
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+
+      # ✅ Configure rclone
+      - name: Setup rclone config
+        run: |
+          mkdir -p ~/.config/rclone
+          cat <<EOF > ~/.config/rclone/rclone.conf
+          [old]
+          type = s3
+          provider = Other
+          access_key_id = ${{ secrets.OLD_S3_KEY }}
+          secret_access_key = ${{ secrets.OLD_S3_SECRET }}
+          endpoint = ${{ secrets.OLD_S3_ENDPOINT }}
+
+          [new]
+          type = s3
+          provider = Other
+          access_key_id = ${{ secrets.NEW_S3_KEY }}
+          secret_access_key = ${{ secrets.NEW_S3_SECRET }}
+          endpoint = ${{ secrets.NEW_S3_ENDPOINT }}
+          EOF
+
+      # ✅ Copy storage
+      - name: Sync buckets
+        run: |
+          rclone sync old: new: --progress --transfers=8 --checkers=16
