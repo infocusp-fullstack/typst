@@ -1,9 +1,13 @@
 name: Backup Supabase Storage
 
 on:
-  workflow_dispatch: # manual trigger
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
   schedule:
-    - cron: "0 2 * * *" # daily at 2 AM UTC
+    - cron: "0 0 * * *"
 
 jobs:
   backup:
