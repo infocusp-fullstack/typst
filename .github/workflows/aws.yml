@@ -60,10 +60,10 @@ jobs:
 
           [new]
           type = s3
-          provider = Other
+          provider = AWS
           access_key_id = ${{ secrets.AWS_S3_KEY }}
           secret_access_key = ${{ secrets.AWS_S3_SECRET }}
-          endpoint = ${{ secrets.AWS_S3_ENDPOINT }}
+          region = ap-south-1
           EOF
 
       # ✅ Generate timestamp folder
