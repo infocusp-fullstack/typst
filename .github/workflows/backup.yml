@@ -45,7 +45,6 @@ jobs:
 
       # 🚀 Main backup + restore
       - name: Backup and restore
-      - name: Backup and restore
         run: |
           set -e
           /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
