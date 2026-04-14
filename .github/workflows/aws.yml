@@ -1,0 +1,102 @@
+name: Supabase Full Backup
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+env:
+  BACKUP_ENABLED: true
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_ENABLED: ${{ vars.BACKUP_ENABLED }}
+
+    steps:
+      - name: Check if backups are enabled
+        run: |
+          if [ "$BACKUP_ENABLED" != "true" ]; then
+            echo "Backups disabled. Exiting."
+            exit 0
+          fi
+
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # ✅ Install PostgreSQL 17 client
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg
+          wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+      # ✅ Install rclone
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+
+      # ✅ Keep BOTH remotes (old + new)
+      - name: Setup rclone config
+        run: |
+          mkdir -p ~/.config/rclone
+          cat <<EOF > ~/.config/rclone/rclone.conf
+          [old]
+          type = s3
+          provider = Other
+          access_key_id = ${{ secrets.OLD_S3_KEY }}
+          secret_access_key = ${{ secrets.OLD_S3_SECRET }}
+          endpoint = ${{ secrets.OLD_S3_ENDPOINT }}
+
+          [new]
+          type = s3
+          provider = Other
+          access_key_id = ${{ secrets.AWS_S3_KEY }}
+          secret_access_key = ${{ secrets.AWS_S3_SECRET }}
+          endpoint = ${{ secrets.AWS_S3_ENDPOINT }}
+          EOF
+
+      # ✅ Generate timestamp folder
+      - name: Prepare backup path
+        run: |
+          DATE=$(date +%F-%H-%M)
+          BACKUP_PATH="typst-backup/$DATE"
+          echo "BACKUP_PATH=$BACKUP_PATH" >> $GITHUB_ENV
+
+      # ✅ Dump database directly to S3 (temp → upload)
+      - name: Dump database
+        run: |
+          mkdir -p backup
+          DUMP_FILE="backup/db.dump"
+
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            --clean \
+            --file="$DUMP_FILE"
+
+          echo "DUMP_FILE=$DUMP_FILE" >> $GITHUB_ENV
+
+      # ✅ Upload DB dump → dated folder
+      - name: Upload DB dump
+        run: |
+          rclone copy "$DUMP_FILE" new:$BACKUP_PATH/ --progress
+
+      # ✅ Copy storage → dated folder
+      - name: Backup storage
+        run: |
+          rclone copy old: new:$BACKUP_PATH/storage/ \
+            --progress \
+            --transfers=8 \
+            --checkers=16
