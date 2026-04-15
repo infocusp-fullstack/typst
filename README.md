@@ -79,3 +79,38 @@ Before running the tests, you must manually generate the required authentication
    # or with the Playwright UI
    pnpm test:e2e:ui
    ```
+
+## Backups
+
+1. Supabase Backup:
+
+  1. Go to current project
+  2. Go to Storage > Configuration > S3 > New Access Key and Copy the Key ID and Secret generated.
+  3. Copy the Endpoint URL from the same page.
+  4. On GITHUB, Go to repository settings > Secrets and Variables > Actions
+  5. Add these to Repository Secrets as:
+    `
+    OLD_S3_ENDPOINT:
+    OLD_S3_KEY:
+    OLD_S3_SECRET:
+  `
+  6. Then create a new project, ideally in a new account and obtain the same and add to repository secrets as:
+  `
+    NEW_S3_ENDPOINT:
+    NEW_S3_KEY:
+    NEW_S3_SECRET:
+  `
+  7. In the current project, click on Connect on the Top Bar > Direct Connection String > Session Pooler and copy the url and add to repository secrests as `SUPABASE_DB_URL`
+  8. Similarly, for the backup project obtain the url and add to repository secrets as `BACKUP_DB_URL`
+
+2. AWS Backup (Assuming you have added `SUPABASE_DB_URL` AND `OLD-*` variables into repository secret):
+  1. On AWS, Create a new bucket named `typst-backup` and create a new IAM user with S3FullAccess Permissions (or S3 Read Access)
+  2. Go to the created user > Security Credentials and copy Access Key ID and Secret and add to repository secrets as:
+  `
+  AWS_S3_KEY:
+  AWS_S3_SECRET:
+  `
+3. Add a repository variable:
+  `
+  BACKUPS_ENABLED: TRUE
+  `
