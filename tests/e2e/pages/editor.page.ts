@@ -73,6 +73,34 @@ export class EditorPage {
     );
   }
 
+  async replaceWithContent(content: string) {
+    await expect(this.editorTextBox).toBeVisible({ timeout: 30_000 });
+    const firstNonEmptyLine =
+      content
+        .split('\n')
+        .map((line) => line.trim())
+        .find((line) => line.length > 0) ?? content.slice(0, 30);
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await this.editorTextBox.click();
+      await this.page.keyboard.press('ControlOrMeta+A');
+      await this.page.keyboard.press('Backspace');
+      await this.page.keyboard.insertText(content);
+
+      const applied = await this.editorContent
+        .innerText()
+        .then((text) => text.includes(firstNonEmptyLine))
+        .catch(() => false);
+      if (applied) {
+        return;
+      }
+
+      await this.page.waitForTimeout(500);
+    }
+
+    throw new Error('Unable to replace editor content with provided Typst text.');
+  }
+
   async saveChanges(): Promise<boolean> {
     await expect(this.saveButton).toBeEnabled({ timeout: 15_000 });
     await this.saveButton.click();
@@ -113,6 +141,31 @@ export class EditorPage {
 
   async expectPreviewVisible() {
     await expect(this.previewFrame).toBeVisible({ timeout: 60_000 });
+  }
+
+  async waitForPreviewRender() {
+    await this.expectPreviewVisible();
+    await expect(this.previewFrame).toHaveAttribute('src', /blob:/, {
+      timeout: 60_000,
+    });
+    await this.previewFrame.evaluate((frame) => {
+      if (!(frame instanceof HTMLIFrameElement)) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        let settled = false;
+        const done = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+        frame.addEventListener('load', done, { once: true });
+        setTimeout(done, 5_000);
+      });
+    });
+    await expect
+      .poll(async () => (await this.previewFrame.boundingBox())?.height ?? 0, {
+        timeout: 10_000,
+      })
+      .toBeGreaterThan(0);
   }
 
   async exportPdfAndWaitForDownload() {

@@ -35,6 +35,7 @@ export default defineConfig({
       testMatch: /cxo-user\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
+        channel: 'chrome',
         storageState: 'tests/.auth/cxo-user.json',
       },
     },

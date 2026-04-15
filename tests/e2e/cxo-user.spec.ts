@@ -2,6 +2,44 @@ import { test, expect } from '@playwright/test';
 import { DashboardPage } from './pages/dashboard.page';
 import { EditorPage } from './pages/editor.page';
 
+const RESUME_PREVIEW_CONTENT = String.raw`#import "@preview/basic-resume:0.2.8": *
+
+#let name = "Saumya Talwani "
+#let location = "San Diego, CA"
+#let email = "stxu@hmc.edu"
+#let github = "github.com/stuxf"
+#let linkedin = "linkedin.com/in/stuxf"
+#let personal-site = "stuxf.dev"
+
+#show: resume.with(
+  author: name,
+  location: location,
+  email: email,
+  github: github,
+  linkedin: linkedin,
+  personal-site: personal-site,
+  accent-color: "#26428b",
+  font: "New Computer Modern",
+  paper: "us-letter",
+  author-position: left,
+  personal-info-position: left,
+)
+
+== Education
+
+#edu(
+  institution: "Harvey Mudd College",
+  location: "Claremont, CA",
+  dates: dates-helper(start-date: "Aug 2023", end-date: "May 2027"),
+  degree: "Bachelor's of Science, Computer Science and Mathematics",
+
+  // Uncomment the line below if you want edu formatting to be consistent with everything else
+  // consistent: true
+)
+- Cumulative GPA: 4.0\/4.0 | Dean's List, Harvey S. Mudd Merit Scholarship, National Merit Scholarship
+- Relevant Coursework: Data Structures, Program Development, Microprocessors, Abstract Algebra I: Groups and Rings, Linear Algebra, Discrete Mathematics, Multivariable & Single Variable Calculus, Principles and Practice of Comp Sci
+`;
+
 test.describe('CXO User', () => {
   test.use({
     storageState: 'tests/.auth/cxo-user.json',
@@ -61,5 +99,34 @@ test.describe('CXO User', () => {
 
     await dashboardPage.expectProjectVisible(titleOne);
     await dashboardPage.expectProjectVisible(titleTwo);
+  });
+
+  test('pdf preview matches existing basic resume screenshot', async ({
+    page,
+  }) => {
+    test.setTimeout(120_000);
+
+    const dashboardPage = new DashboardPage(page);
+    const editorPage = new EditorPage(page);
+    const snapshotName = 'basic-resume-from-content.png';
+
+    await dashboardPage.goto();
+    const created = await dashboardPage.createBlankDocument(
+      `CXO Preview Compare ${Date.now()}`,
+    );
+    expect(created).toBe(true);
+    
+    await editorPage.expectLoaded();
+    await editorPage.waitForPreviewRender();
+    await editorPage.replaceWithContent(RESUME_PREVIEW_CONTENT);
+    await editorPage.waitForPreviewRender();
+
+    const previewScreenshot = await editorPage.previewFrame.screenshot({
+      animations: 'disabled',
+    });
+
+    expect(previewScreenshot).toMatchSnapshot(snapshotName, {
+      maxDiffPixelRatio: 0.15,
+    });
   });
 });
