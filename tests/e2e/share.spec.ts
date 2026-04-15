@@ -3,11 +3,8 @@ import { DashboardPage } from './pages/dashboard.page';
 import { EditorPage } from './pages/editor.page';
 import { ShareDialogPage } from './pages/share-dialog.page';
 
-const DEFAULT_SHARE_TARGET_EMAIL = 'saumyatalwani@gmail.com';
-const SHARE_TARGET_EMAIL =
-  process.env.PW_SHARE_TARGET_EMAIL ??
-  process.env.PLAYWRIGHT_SHARE_EMAIL ??
-  DEFAULT_SHARE_TARGET_EMAIL;
+// Change Share Target Email here if needed. This email should exist in the auth database to pass.
+const SHARE_TARGET_EMAIL = 'saumya@infocusp.com';
 
 test.describe('Share Flow', () => {
   test.use({
