@@ -1,0 +1,52 @@
+name: supabase-backup
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+env:
+  BACKUP_ENABLED: true
+
+jobs:
+  run_db_backup:
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}   # source
+      BACKUP_DB_URL: ${{ secrets.BACKUP_DB_URL }}       # target
+      BACKUP_ENABLED: ${{ vars.BACKUP_ENABLED }}
+
+    steps:
+      - name: Check if backups are enabled
+        run: |
+          if [ "$BACKUP_ENABLED" != "true" ]; then
+            echo "Backups disabled. Exiting."
+            exit 0
+          fi
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg
+          wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+      # 🔥 Optional but recommended (prevents duplicates/conflicts)
+      - name: Reset backup DB
+        run: |
+          psql "$BACKUP_DB_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+      # 🚀 Main backup + restore
+      - name: Backup and restore
+        run: |
+          set -e
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
+            --no-owner --no-privileges --clean \
+          | psql "$BACKUP_DB_URL"
