@@ -104,13 +104,39 @@ Before running the tests, you must manually generate the required authentication
   8. Similarly, for the backup project obtain the url and add to repository secrets as `BACKUP_DB_URL`
 
 2. AWS Backup (Assuming you have added `SUPABASE_DB_URL` AND `OLD-*` variables into repository secret):
-  1. On AWS, Create a new bucket named `typst-backup` and create a new IAM user with S3FullAccess Permissions (or S3 Read Access)
+  1. On AWS, Create a new bucket.
+  2. Create the following policy:
+  `js
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Sid": "RcloneAccess",
+                "Effect": "Allow",
+                "Action": [
+                    "s3:PutObject",
+                    "s3:ListBucket",
+                    "s3:GetObject"
+                ],
+                "Resource": [
+                    "arn:aws:s3:::typst-backup",
+                    "arn:aws:s3:::typst-backup/*"
+                ]
+            }
+        ]
+      }
+  `
+  3. Create a new IAM user and attach the created policy to it
   2. Go to the created user > Security Credentials and copy Access Key ID and Secret and add to repository secrets as:
   `
   AWS_S3_KEY:
   AWS_S3_SECRET:
   `
-3. Add a repository variable:
+  3. Add the name of the bucket you created to repository secrets as:
   `
-  BACKUPS_ENABLED: TRUE
+  AWS_BUCKET_NAME:
   `
+  4. Add a repository variable:
+    `
+    BACKUPS_ENABLED: TRUE
+    `

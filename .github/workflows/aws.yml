@@ -65,13 +65,14 @@ jobs:
           secret_access_key = ${{ secrets.AWS_S3_SECRET }}
           region = ap-south-1
           location_constraint = ap-south-1
+          no_check_bucket = true
           EOF
 
       # Define bucket + timestamp
       - name: Prepare backup path
         run: |
           DATE=$(date +%F-%H-%M)
-          BUCKET="typst-backup"
+          BUCKET="${{ secrets.AWS_BUCKET_NAME }}"
           BACKUP_PATH="$DATE"
           echo "BUCKET=$BUCKET" >> $GITHUB_ENV
           echo "BACKUP_PATH=$BACKUP_PATH" >> $GITHUB_ENV
