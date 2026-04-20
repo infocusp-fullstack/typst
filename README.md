@@ -82,61 +82,108 @@ Before running the tests, you must manually generate the required authentication
 
 ## Backups
 
-1. Supabase Backup:
+1. Supabase:
+   1. Go to current project.
+   2. Go to `Storage > Configuration > S3 > New Access Key` and copy the Key ID and Secret.
+   3. Copy the Endpoint URL from the same page.
+   4. On GitHub, go to `Repository settings > Secrets and variables > Actions`.
+   5. Add these Repository Secrets:
 
-  1. Go to current project
-  2. Go to Storage > Configuration > S3 > New Access Key and Copy the Key ID and Secret generated.
-  3. Copy the Endpoint URL from the same page.
-  4. On GITHUB, Go to repository settings > Secrets and Variables > Actions
-  5. Add these to Repository Secrets as:
-    `
-    OLD_S3_ENDPOINT:
-    OLD_S3_KEY:
-    OLD_S3_SECRET:
-  `
-  6. Then create a new project, ideally in a new account and obtain the same and add to repository secrets as:
-  `
-    NEW_S3_ENDPOINT:
-    NEW_S3_KEY:
-    NEW_S3_SECRET:
-  `
-  7. In the current project, click on Connect on the Top Bar > Direct Connection String > Session Pooler and copy the url and add to repository secrests as `SUPABASE_DB_URL`
-  8. Similarly, for the backup project obtain the url and add to repository secrets as `BACKUP_DB_URL`
+      ```text
+      SUPABASE_S3_ENDPOINT
+      SUPABASE_S3_KEY
+      SUPABASE_S3_SECRET
+      ```
 
-2. AWS Backup (Assuming you have added `SUPABASE_DB_URL` AND `OLD-*` variables into repository secret):
-  1. On AWS, Create a new bucket.
-  2. Create the following policy:
-  `js
+   6. In the current project, click `Connect` in the top bar, then `Direct Connection String > Session Pooler`, copy the URL, and add it to Repository Secrets as `SUPABASE_DB_URL`.
+
+2. AWS (Assuming you have added `SUPABASE_DB_URL` AND `SUPABASE-*` variables into repository secret):
+   1. Create a bucket:
+
+      ```bash
+      aws s3api create-bucket \
+      --bucket typst-backup \
+      --region ap-south-1 \
+      --create-bucket-configuration LocationConstraint=ap-south-1
+      ```
+
+   2. Create an OIDC provider:
+
+      ```bash
+      aws iam create-open-id-connect-provider \
+      --url "https://token.actions.githubusercontent.com" \
+      --thumbprint-list "6938fd4d98bab03faadb97b34396831e3780aea1" \
+      --client-id-list "sts.amazonaws.com"
+      ```
+
+   3. Save the following policy as `policy.json` (replace federated field with output from previous command):
+
+      ```json
       {
         "Version": "2012-10-17",
         "Statement": [
-            {
-                "Sid": "RcloneAccess",
-                "Effect": "Allow",
-                "Action": [
-                    "s3:PutObject",
-                    "s3:ListBucket",
-                    "s3:GetObject"
-                ],
-                "Resource": [
-                    "arn:aws:s3:::typst-backup",
-                    "arn:aws:s3:::typst-backup/*"
-                ]
+          {
+            "Effect": "Allow",
+            "Principal": {
+              "Federated": "<arn:aws:iam::111122223333:oidc-provider/token.actions.githubusercontent.com>"
+            },
+            "Action": "sts:AssumeRoleWithWebIdentity",
+            "Condition": {
+              "StringLike": {
+                "token.actions.githubusercontent.com:sub": "repo:infocusp-fullstack/typst:*"
+              },
+              "StringEquals": {
+                "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
+              }
             }
+          }
         ]
       }
-  `
-  3. Create a new IAM user and attach the created policy to it
-  2. Go to the created user > Security Credentials and copy Access Key ID and Secret and add to repository secrets as:
-  `
-  AWS_S3_KEY:
-  AWS_S3_SECRET:
-  `
-  3. Add the name of the bucket you created to repository secrets as:
-  `
-  AWS_BUCKET_NAME:
-  `
-  4. Add a repository variable:
-    `
-    BACKUPS_ENABLED: TRUE
-    `
+      ```
+
+   4. Create the role:
+
+      ```bash
+      aws iam create-role \
+      --role-name GitHubAction-AssumeRoleWithAction \
+      --assume-role-policy-document file://policy.json
+      ```
+      then copy the role ARN and store it in Github secrets as :
+      ```text
+        AWS_ROLE_ARN
+      ```
+   5. Attach S3 policy:
+
+      ```json
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Sid": "RcloneAccess",
+            "Effect": "Allow",
+            "Action": [
+              "s3:PutObject",
+              "s3:ListBucket",
+              "s3:GetObject"
+            ],
+            "Resource": [
+              "arn:aws:s3:::typst-backup",
+              "arn:aws:s3:::typst-backup/*"
+            ]
+          }
+        ]
+      }
+      ```
+
+      ```bash
+      aws iam put-role-policy \
+      --role-name GitHubAction-AssumeRoleWithAction \
+      --policy-name RcloneAccessPolicy \
+      --policy-document file://s3-policy.json
+      ```
+
+   6. Add the bucket name you created to Repository Secrets (`typst-backup` if you used step 1):
+
+      ```text
+      AWS_BUCKET_NAME
+      ```
