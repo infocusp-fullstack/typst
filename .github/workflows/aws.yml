@@ -67,6 +67,7 @@ jobs:
           region = ap-south-1
           location_constraint = ap-south-1
           env_auth = true
+          no_check_bucket = true
           EOF
 
       # Define bucket + timestamp
