@@ -16,20 +16,23 @@ jobs:
   backup:
     runs-on: ubuntu-latest
 
+    permissions:
+      id-token: write   # 🔥 REQUIRED for OIDC
+      contents: read
+
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-      BACKUP_ENABLED: ${{ vars.BACKUP_ENABLED }}
 
     steps:
-      - name: Check if backups are enabled
-        run: |
-          if [ "$BACKUP_ENABLED" != "true" ]; then
-            echo "Backups disabled. Exiting."
-            exit 0
-          fi
-
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      # ✅ Configure AWS via OIDC
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-south-1
 
       # ✅ Install PostgreSQL 17 client
       - name: Install PostgreSQL 17 client
@@ -46,7 +49,7 @@ jobs:
         run: |
           curl https://rclone.org/install.sh | sudo bash
 
-      # ✅ Keep BOTH remotes (old + new)
+      # ✅ Setup rclone (NO AWS KEYS NOW)
       - name: Setup rclone config
         run: |
           mkdir -p ~/.config/rclone
@@ -54,22 +57,19 @@ jobs:
           [old]
           type = s3
           provider = Other
-          access_key_id = ${{ secrets.OLD_S3_KEY }}
-          secret_access_key = ${{ secrets.OLD_S3_SECRET }}
-          endpoint = ${{ secrets.OLD_S3_ENDPOINT }}
+          access_key_id = ${{ secrets.SUPABASE_S3_KEY }}
+          secret_access_key = ${{ secrets.SUPABASE_S3_SECRET }}
+          endpoint = ${{ secrets.SUPABASE_S3_ENDPOINT }}
 
           [new]
           type = s3
           provider = AWS
-          access_key_id = ${{ secrets.AWS_S3_KEY }}
-          secret_access_key = ${{ secrets.AWS_S3_SECRET }}
           region = ap-south-1
-          location_constraint = ap-south-1
-          no_check_bucket = true
+          env_auth = true   # 🔥 USE OIDC TEMP CREDS
           EOF
 
       # Define bucket + timestamp
-      - name: Prepare backup path
+      - name: Prepare backup DIRECTORY
         run: |
           DATE=$(date +%F-%H-%M)
           BUCKET="${{ secrets.AWS_BUCKET_NAME }}"
@@ -92,7 +92,7 @@ jobs:
 
           echo "DUMP_FILE=$DUMP_FILE" >> $GITHUB_ENV
 
-      # Upload DB dump
+      # Upload DB dump (via rclone using OIDC creds)
       - name: Upload DB dump
         run: |
           rclone copy "$DUMP_FILE" new:$BUCKET/$BACKUP_PATH/ --progress

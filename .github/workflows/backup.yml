@@ -1,5 +1,4 @@
 name: supabase-backup
-
 on:
   push:
     branches: [main, dev]
@@ -14,21 +13,13 @@ env:
 
 jobs:
   run_db_backup:
+    if: false
     runs-on: ubuntu-latest
 
     env:
       SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}   # source
       BACKUP_DB_URL: ${{ secrets.BACKUP_DB_URL }}       # target
-      BACKUP_ENABLED: ${{ vars.BACKUP_ENABLED }}
-
     steps:
-      - name: Check if backups are enabled
-        run: |
-          if [ "$BACKUP_ENABLED" != "true" ]; then
-            echo "Backups disabled. Exiting."
-            exit 0
-          fi
-
       - name: Install PostgreSQL 17 client
         run: |
           sudo apt-get update
