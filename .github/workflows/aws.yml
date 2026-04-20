@@ -65,7 +65,7 @@ jobs:
           type = s3
           provider = AWS
           region = ap-south-1
-          env_auth = true   # 🔥 USE OIDC TEMP CREDS
+          env_auth = true
           EOF
 
       # Define bucket + timestamp
