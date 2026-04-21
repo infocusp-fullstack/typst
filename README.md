@@ -107,7 +107,33 @@ Before running the tests, you must manually generate the required authentication
       --create-bucket-configuration LocationConstraint=ap-south-1
       ```
 
-   2. Create an OIDC provider:
+   2. Add bucket lifecycle policy (to delete objects older than 30 days):
+
+      ```json
+      {
+        "Rules": [
+          {
+            "ID": "DeleteOldObjects",
+            "Filter": {},
+            "Status": "Enabled",
+            "Expiration": {
+              "Days": 30
+            }
+          }
+        ]
+      }
+      ```
+
+      Save it as `lifecycle.json` and run:
+
+      ```bash
+      aws s3api put-bucket-lifecycle-configuration \
+        --bucket typst-backup \
+        --lifecycle-configuration file://lifecycle.json \
+        --region ap-south-1
+      ```
+
+   3. Create an OIDC provider:
 
       ```bash
       aws iam create-open-id-connect-provider \
@@ -116,7 +142,7 @@ Before running the tests, you must manually generate the required authentication
       --client-id-list "sts.amazonaws.com"
       ```
 
-   3. Save the following policy as `policy.json` (replace federated field with output from previous command):
+   4. Save the following policy as `policy.json` (replace federated field with output from previous command):
 
       ```json
       {
@@ -141,18 +167,19 @@ Before running the tests, you must manually generate the required authentication
       }
       ```
 
-   4. Create the role:
+   5. Create the role:
 
       ```bash
       aws iam create-role \
       --role-name GitHubAction-AssumeRoleWithAction \
       --assume-role-policy-document file://policy.json
       ```
-      then copy the role ARN and store it in Github secrets as :
+      then copy the role ARN and store it in GitHub Secrets as:
+
       ```text
-        AWS_ROLE_ARN
+      AWS_ROLE_ARN
       ```
-   5. Attach S3 policy:
+   6. Attach S3 policy:
 
       ```json
       {
@@ -182,7 +209,7 @@ Before running the tests, you must manually generate the required authentication
       --policy-document file://s3-policy.json
       ```
 
-   6. Add the bucket name you created to Repository Secrets (`typst-backup` if you used step 1):
+   7. Add the bucket name you created to Repository Secrets (`typst-backup` if you used step 1):
 
       ```text
       AWS_BUCKET_NAME
