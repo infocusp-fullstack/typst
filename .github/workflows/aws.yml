@@ -1,0 +1,104 @@
+name: Supabase Full Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *"
+
+env:
+  BACKUP_ENABLED: true
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write   # 🔥 REQUIRED for OIDC
+      contents: read
+
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # ✅ Configure AWS via OIDC
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      # ✅ Install PostgreSQL 17 client
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg
+          wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+      # ✅ Install rclone
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+
+      # ✅ Setup rclone (NO AWS KEYS NOW)
+      - name: Setup rclone config
+        run: |
+          mkdir -p ~/.config/rclone
+          cat <<EOF > ~/.config/rclone/rclone.conf
+          [old]
+          type = s3
+          provider = Other
+          access_key_id = ${{ secrets.SUPABASE_S3_KEY }}
+          secret_access_key = ${{ secrets.SUPABASE_S3_SECRET }}
+          endpoint = ${{ secrets.SUPABASE_S3_ENDPOINT }}
+
+          [new]
+          type = s3
+          provider = AWS
+          region = ap-south-1
+          location_constraint = ap-south-1
+          env_auth = true
+          no_check_bucket = true
+          EOF
+
+      # Define bucket + timestamp
+      - name: Prepare backup DIRECTORY
+        run: |
+          DATE=$(date +%F-%H-%M)
+          BUCKET="${{ secrets.AWS_BUCKET_NAME }}"
+          BACKUP_PATH="$DATE"
+          echo "BUCKET=$BUCKET" >> $GITHUB_ENV
+          echo "BACKUP_PATH=$BACKUP_PATH" >> $GITHUB_ENV
+
+      # Dump database
+      - name: Dump database
+        run: |
+          mkdir -p backup
+          DUMP_FILE="backup/db.dump"
+
+          /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
+            --format=custom \
+            --no-owner \
+            --no-privileges \
+            --clean \
+            --file="$DUMP_FILE"
+
+          echo "DUMP_FILE=$DUMP_FILE" >> $GITHUB_ENV
+
+      # Upload DB dump (via rclone using OIDC creds)
+      - name: Upload DB dump
+        run: |
+          rclone copy "$DUMP_FILE" new:$BUCKET/$BACKUP_PATH/ --progress
+
+      # Backup storage
+      - name: Backup storage
+        run: |
+          rclone copy old: new:$BUCKET/$BACKUP_PATH/storage/ \
+            --progress \
+            --transfers=8 \
+            --checkers=16
