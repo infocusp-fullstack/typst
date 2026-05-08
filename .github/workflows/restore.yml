@@ -103,23 +103,11 @@ jobs:
           psql "$SUPABASE_DB_URL" <<'SQL'
           DROP SCHEMA IF EXISTS public CASCADE;
           CREATE SCHEMA public;
-
-          DROP SCHEMA IF EXISTS auth CASCADE;
-          CREATE SCHEMA auth;
           SQL
 
-          /usr/lib/postgresql/17/bin/pg_restore \
-            --no-owner \
-            --no-privileges \
-            --schema=public \
-            --schema=auth \
-            --exclude-schema=extensions \
-            --exclude-schema=realtime \
-            --exclude-schema=storage \
-            --exclude-schema=supabase_functions \
-            --exclude-schema=pgbouncer \
-            --dbname="$SUPABASE_DB_URL" \
-            restore/db.dump
+          psql "$SUPABASE_DB_URL" \
+            -v ON_ERROR_STOP=1 \
+            < restore/db.sql
             
       - name: Restore storage from latest backup
         run: |

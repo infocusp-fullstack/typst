@@ -82,7 +82,6 @@ jobs:
           DUMP_FILE="backup/db.dump"
 
           /usr/lib/postgresql/17/bin/pg_dump "$SUPABASE_DB_URL" \
-            --format=custom \
             --no-owner \
             --no-privileges \
             --clean \
