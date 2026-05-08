@@ -214,3 +214,18 @@ Before running the tests, you must manually generate the required authentication
       ```text
       AWS_BUCKET_NAME
       ```
+
+## Restoring From Backup
+
+1. Create a fresh supabase project and setup google provider (refer to setup steps). (NOTE: It is important to setup fresh project for users to restore)
+2. Obtain DB URL of the project (follow steps above for the same).
+3. Create a s3 acess key and obtain key, secret and endpoint (refer to backup guide for steps)
+4. Run (you should be logged in to github with access to this repo):
+  ```bash
+  gh workflow run restore-from-aws-backup \
+  --ref test/playwright-setup \
+  -f restore_db_url="YOUR_DB_URL" \
+  -f supabase_s3_key="YOUR_KEY" \
+  -f supabase_s3_secret="YOUR_SECRET" \
+  -f supabase_s3_endpoint="YOUR_ENDPOINT"
+  ```
