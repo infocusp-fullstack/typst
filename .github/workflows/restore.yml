@@ -100,13 +100,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          psql "$SUPABASE_DB_URL" <<'SQL'
-          DROP SCHEMA IF EXISTS public CASCADE;
-          CREATE SCHEMA public;
-          SQL
-
-          psql "$SUPABASE_DB_URL" \
-            < restore/db.dump
+          psql "$SUPABASE_DB_URL" < restore/db.dump
             
       - name: Restore storage from latest backup
         run: |
