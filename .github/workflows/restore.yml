@@ -1,4 +1,4 @@
-name: restore-from-aws-backup
+name: restore
 
 on:
   workflow_dispatch:
