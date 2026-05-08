@@ -222,8 +222,7 @@ Before running the tests, you must manually generate the required authentication
 3. Create a s3 acess key and obtain key, secret and endpoint (refer to backup guide for steps)
 4. Run (you should be logged in to github with access to this repo):
   ```bash
-  gh workflow run restore-from-aws-backup \
-  --ref test/playwright-setup \
+  gh workflow run restore \
   -f restore_db_url="YOUR_DB_URL" \
   -f supabase_s3_key="YOUR_KEY" \
   -f supabase_s3_secret="YOUR_SECRET" \
