@@ -1,9 +1,6 @@
 name: restore-from-aws-backup
 
 on:
-  push:
-    branches:
-      - test/playwright-setup
   workflow_dispatch:
     inputs:
       restore_db_url:
@@ -102,15 +99,28 @@ jobs:
       - name: Restore database
         run: |
           set -euo pipefail
-          psql "$SUPABASE_DB_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+          psql "$SUPABASE_DB_URL" <<'SQL'
+          DROP SCHEMA IF EXISTS public CASCADE;
+          CREATE SCHEMA public;
+
+          DROP SCHEMA IF EXISTS auth CASCADE;
+          CREATE SCHEMA auth;
+          SQL
+
           /usr/lib/postgresql/17/bin/pg_restore \
             --no-owner \
             --no-privileges \
-            --clean \
-            --if-exists \
+            --schema=public \
+            --schema=auth \
+            --exclude-schema=extensions \
+            --exclude-schema=realtime \
+            --exclude-schema=storage \
+            --exclude-schema=supabase_functions \
+            --exclude-schema=pgbouncer \
             --dbname="$SUPABASE_DB_URL" \
             restore/db.dump
-
+            
       - name: Restore storage from latest backup
         run: |
           set -euo pipefail
