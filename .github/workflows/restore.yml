@@ -1,0 +1,117 @@
+name: restore-from-aws-backup
+
+on:
+  workflow_dispatch:
+    inputs:
+      restore_db_url:
+        description: "Supabase database URL to restore to"
+        required: true
+      supabase_s3_key:
+        description: "Supabase S3 access key"
+        required: true
+      supabase_s3_secret:
+        description: "Supabase S3 secret key"
+        required: true
+      supabase_s3_endpoint:
+        description: "Supabase S3 endpoint"
+        required: true
+
+env:
+  BACKUP_ENABLED: true
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    env:
+      SUPABASE_DB_URL: ${{ github.event.inputs.restore_db_url }}
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg
+          wget -qO- https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /usr/share/keyrings/postgresql.gpg
+          echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+
+      - name: Install rclone
+        run: |
+          curl https://rclone.org/install.sh | sudo bash
+
+      - name: Setup rclone config
+        run: |
+          mkdir -p ~/.config/rclone
+          cat <<EOF > ~/.config/rclone/rclone.conf
+          [old]
+          type = s3
+          provider = Other
+          access_key_id = ${{ github.event.inputs.supabase_s3_key }}
+          secret_access_key = ${{ github.event.inputs.supabase_s3_secret }}
+          endpoint = ${{ github.event.inputs.supabase_s3_endpoint }}
+
+          [new]
+          type = s3
+          provider = AWS
+          region = ap-south-1
+          location_constraint = ap-south-1
+          env_auth = true
+          no_check_bucket = true
+          EOF
+
+      - name: Resolve latest backup folder
+        run: |
+          set -euo pipefail
+          BUCKET="${{ secrets.AWS_BUCKET_NAME }}"
+          LATEST_BACKUP=$(rclone lsf --dirs "new:$BUCKET" | sed 's:/$::' | sort | tail -n 1)
+
+          if [ -z "$LATEST_BACKUP" ]; then
+            echo "No backup folders found in new:$BUCKET"
+            exit 1
+          fi
+
+          echo "BUCKET=$BUCKET" >> "$GITHUB_ENV"
+          echo "LATEST_BACKUP=$LATEST_BACKUP" >> "$GITHUB_ENV"
+          echo "Using backup folder: $LATEST_BACKUP"
+
+      - name: Download DB dump from latest backup
+        run: |
+          set -euo pipefail
+          mkdir -p restore
+          rclone copy "new:$BUCKET/$LATEST_BACKUP/db.dump" restore/ --progress
+
+          if [ ! -f restore/db.dump ]; then
+            echo "restore/db.dump not found after download"
+            exit 1
+          fi
+
+      - name: Restore database
+        run: |
+          set -euo pipefail
+          psql "$SUPABASE_DB_URL" -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+          /usr/lib/postgresql/17/bin/pg_restore \
+            --no-owner \
+            --no-privileges \
+            --clean \
+            --if-exists \
+            --dbname="$SUPABASE_DB_URL" \
+            restore/db.dump
+
+      - name: Restore storage from latest backup
+        run: |
+          set -euo pipefail
+          rclone copy "new:$BUCKET/$LATEST_BACKUP/storage/" old: \
+            --progress \
+            --transfers=8 \
+            --checkers=16
