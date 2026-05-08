@@ -106,7 +106,6 @@ jobs:
           SQL
 
           psql "$SUPABASE_DB_URL" \
-            -v ON_ERROR_STOP=1 \
             < restore/db.dump
             
       - name: Restore storage from latest backup
