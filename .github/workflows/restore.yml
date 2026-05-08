@@ -1,6 +1,9 @@
 name: restore-from-aws-backup
 
 on:
+  push:
+    branches:
+      - test/playwright-setup
   workflow_dispatch:
     inputs:
       restore_db_url:
