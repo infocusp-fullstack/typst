@@ -55,11 +55,18 @@ export const Toolbar = memo(function Toolbar({
 
   return (
     <div className="border-b bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-      <div className="flex h-14 items-center gap-4 px-4">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back
-        </Button>
+      <div className="flex h-14 items-center px-2 sm:px-4 relative">
+        {/* Left Section */}
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="shrink-0"
+          >
+            <ArrowLeft className="mr-1 sm:mr-2 h-4 w-4" />
+            <span className="hidden xs:inline">Back</span>
+          </Button>
 
         <div className="flex items-center gap-2">
           <Link href="/" prefetch={false} className="flex items-center gap-2">
@@ -81,6 +88,7 @@ export const Toolbar = memo(function Toolbar({
               </TruncateWithTooltip>
             </>
           )}
+        </div>
         </div>
 
         <div className="flex-1" />
@@ -112,8 +120,8 @@ export const Toolbar = memo(function Toolbar({
             onClick={() => onSave()}
             disabled={isSaving || !hasUnsavedChanges || !canSave}
           >
-            <Save className="mr-2 h-4 w-4" />
-            Save
+            <Save className="mr-1 sm:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Save</span>
           </Button>
 
           <Button
@@ -121,24 +129,31 @@ export const Toolbar = memo(function Toolbar({
             size="sm"
             onClick={onExport}
             disabled={!isTypstReady || isCompiling}
+            className="shrink-0"
           >
-            <Download className="mr-2 h-4 w-4" />
-            Export PDF
+            <Download className="mr-1 sm:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Export PDF</span>
           </Button>
 
-          {/* Share button - only visible to owner */}
+          {/* Share button - only visible to owner and on larger screens */}
           {isOwner && (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setShareModalOpen(true)}
+              className="hidden sm:flex shrink-0"
             >
               <Share2 className="mr-2 h-4 w-4" />
               Share
             </Button>
           )}
 
-          <Button variant="ghost" size="icon" onClick={toggleTheme}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="shrink-0"
+          >
             {theme === "dark" ? (
               <Sun className="h-4 w-4" />
             ) : (

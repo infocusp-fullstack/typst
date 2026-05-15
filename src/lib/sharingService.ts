@@ -308,7 +308,7 @@ export async function canViewProject(
 export async function getResumeByUsername(
   username: string
 ): Promise<string | undefined> {
-  const supabase = getAdminClient();
+  const supabase = await getAdminClient();
 
   const { data, error } = await supabase.auth.admin.listUsers({
     page: 1,

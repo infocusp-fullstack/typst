@@ -18,7 +18,7 @@
    1. Choose Application Type: Web Application
    2. Add Authorized Javascript origin: `http://localhost:3000`
    3. Add Authorized redirect URIs: `http://localhost:3000/api/auth/google`
-   4. Copy the generated **Client ID** and **Client Secret**.
+   4. Copy the generated **Client ID** and **Client Secret**
 4. Setup Google Auth in Supabase
    1. In Supabase Dashboard → **Authentication → Providers → Google**, enable Google sign-in
    2. Put ClientId, Secret that you created in previous step and Save
