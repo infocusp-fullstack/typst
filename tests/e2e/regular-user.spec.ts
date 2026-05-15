@@ -13,7 +13,10 @@ test.describe('Non-CXO User', () => {
     const documentTitle = `Regular Resume ${Date.now()}`;
 
     await dashboardPage.goto();
-    const created = await dashboardPage.createFromTemplate(documentTitle);
+    const canCreateBlank = await dashboardPage.isBlankDocumentVisible();
+    const created = canCreateBlank
+      ? await dashboardPage.createBlankDocument(documentTitle)
+      : await dashboardPage.createFromTemplate(documentTitle);
     if (!created) {
       await dashboardPage.openExistingProjectOrCreateFromTemplate(documentTitle);
     }
