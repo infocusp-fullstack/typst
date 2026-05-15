@@ -11,6 +11,7 @@ export class EditorPage {
   readonly editorContent: Locator;
   readonly editorTextBox: Locator;
   readonly previewFrame: Locator;
+  readonly previewCanvas: Locator;
   readonly overrideDialog: Locator;
   readonly overrideConfirmButton: Locator;
   readonly discardAndLeaveButton: Locator;
@@ -20,12 +21,15 @@ export class EditorPage {
     this.shareButton = page.getByRole('button', { name: /^Share$/ });
     this.saveButton = page.getByRole('button', { name: /^Save$/ });
     this.exportPdfButton = page.getByRole('button', { name: /export pdf/i });
-    this.backButton = page.getByRole('button', { name: /^Back$/ });
+    this.backButton = page
+      .locator('button:has(svg.lucide-arrow-left)')
+      .first();
     this.unsavedIndicator = page.getByText('● Unsaved');
     this.savedIndicator = page.locator('span').filter({ hasText: /^Saved / });
     this.editorContent = page.locator('.cm-content').first();
     this.editorTextBox = page.getByRole('textbox').first();
     this.previewFrame = page.locator('iframe[title="PDF Preview"]');
+    this.previewCanvas = page.locator('.preview-container canvas').first();
     this.overrideDialog = page.getByRole('dialog').filter({
       hasText: /are you sure you want to override/i,
     });
@@ -140,32 +144,90 @@ export class EditorPage {
   }
 
   async expectPreviewVisible() {
-    await expect(this.previewFrame).toBeVisible({ timeout: 60_000 });
+    const iframeVisible = await this.previewFrame
+      .isVisible()
+      .catch(() => false);
+    if (iframeVisible) {
+      await expect(this.previewFrame).toBeVisible({ timeout: 60_000 });
+      return;
+    }
+
+    await expect(this.previewCanvas).toBeVisible({ timeout: 60_000 });
   }
 
   async waitForPreviewRender() {
     await this.expectPreviewVisible();
-    await expect(this.previewFrame).toHaveAttribute('src', /blob:/, {
-      timeout: 60_000,
-    });
-    await this.previewFrame.evaluate((frame) => {
-      if (!(frame instanceof HTMLIFrameElement)) return Promise.resolve();
-      return new Promise<void>((resolve) => {
-        let settled = false;
-        const done = () => {
-          if (settled) return;
-          settled = true;
-          resolve();
-        };
-        frame.addEventListener('load', done, { once: true });
-        setTimeout(done, 5_000);
+    const iframeVisible = await this.previewFrame
+      .isVisible()
+      .catch(() => false);
+
+    if (iframeVisible) {
+      await expect(this.previewFrame).toHaveAttribute('src', /blob:/, {
+        timeout: 60_000,
       });
-    });
+      await this.previewFrame.evaluate((frame) => {
+        if (!(frame instanceof HTMLIFrameElement)) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          frame.addEventListener('load', done, { once: true });
+          setTimeout(done, 5_000);
+        });
+      });
+      await expect
+        .poll(async () => (await this.previewFrame.boundingBox())?.height ?? 0, {
+          timeout: 10_000,
+        })
+        .toBeGreaterThan(0);
+      return;
+    }
+
     await expect
-      .poll(async () => (await this.previewFrame.boundingBox())?.height ?? 0, {
-        timeout: 10_000,
-      })
+      .poll(
+        async () => {
+          const box = await this.previewCanvas.boundingBox();
+          return box?.height ?? 0;
+        },
+        { timeout: 30_000 },
+      )
       .toBeGreaterThan(0);
+  }
+
+  async getPreviewRenderSignature(): Promise<string> {
+    const iframeVisible = await this.previewFrame
+      .isVisible()
+      .catch(() => false);
+    if (iframeVisible) {
+      return this.previewFrame
+        .getAttribute('src')
+        .then((src) => src ?? '')
+        .catch(() => '');
+    }
+
+    return this.previewCanvas
+      .evaluate((canvas) => {
+        if (!(canvas instanceof HTMLCanvasElement)) return '';
+        // Sampling a small data URL prefix keeps this fast while still detecting new renders.
+        return `${canvas.width}x${canvas.height}:${canvas
+          .toDataURL('image/png')
+          .slice(0, 256)}`;
+      })
+      .catch(() => '');
+  }
+
+  async waitForPreviewUpdate(previousSignature: string) {
+    await this.waitForPreviewRender();
+    if (!previousSignature) {
+      return;
+    }
+
+    await expect
+      .poll(async () => this.getPreviewRenderSignature(), { timeout: 45_000 })
+      .not.toBe(previousSignature);
   }
 
   async exportPdfAndWaitForDownload() {
@@ -173,6 +235,16 @@ export class EditorPage {
     await expect(this.exportPdfButton).toBeEnabled({ timeout: 30_000 });
     await this.exportPdfButton.click();
     await downloadPromise;
+  }
+
+  async takePreviewScreenshot() {
+    const iframeVisible = await this.previewFrame
+      .isVisible()
+      .catch(() => false);
+    if (iframeVisible) {
+      return this.previewFrame.screenshot({ animations: 'disabled' });
+    }
+    return this.previewCanvas.screenshot({ animations: 'disabled' });
   }
 
   async goBackToDashboard() {

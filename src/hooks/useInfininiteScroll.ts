@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Project, FilterType } from "@/types";
-import { fetchUserProjects, searchUserProjects } from "@/lib/projectService";
+import { fetchUserProjects } from "@/lib/projectService";
+import { search_resumes } from "@/lib/searchService";
 
 interface UseInfiniteScrollOptions {
   initialLoad?: boolean;
@@ -85,7 +86,7 @@ export function useInfiniteScroll({
         setError(null);
 
         const result = searchQueryToUse.trim()
-          ? await searchUserProjects(
+          ? await search_resumes(
               searchQueryToUse,
               page,
               pageSize,

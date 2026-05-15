@@ -45,6 +45,7 @@ export type ProjectWithShares = Project & {
   shares?: ProjectShare[];
   owner?: User;
   shared_by?: User;
+  snippets?: string[]; // For search results, to hold text snippets with highlights
 };
 
 export type SharePermission = "read" | "edit";

@@ -118,12 +118,11 @@ test.describe('CXO User', () => {
     
     await editorPage.expectLoaded();
     await editorPage.waitForPreviewRender();
+    const initialPreviewSignature = await editorPage.getPreviewRenderSignature();
     await editorPage.replaceWithContent(RESUME_PREVIEW_CONTENT);
-    await editorPage.waitForPreviewRender();
+    await editorPage.waitForPreviewUpdate(initialPreviewSignature);
 
-    const previewScreenshot = await editorPage.previewFrame.screenshot({
-      animations: 'disabled',
-    });
+    const previewScreenshot = await editorPage.takePreviewScreenshot();
 
     expect(previewScreenshot).toMatchSnapshot(snapshotName, {
       maxDiffPixelRatio: 0.15,
