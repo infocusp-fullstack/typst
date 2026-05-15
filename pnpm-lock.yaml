@@ -3737,7 +3737,7 @@ snapshots:
       fast-glob: 3.3.3
       is-glob: 4.0.3
       minimatch: 9.0.5
-      semver: 7.7.2
+      semver: 7.7.3
       ts-api-utils: 2.1.0(typescript@5.9.2)
       typescript: 5.9.2
     transitivePeerDependencies:
@@ -3975,6 +3975,8 @@ snapshots:
 
   caniuse-lite@1.0.30001784: {}
 
+  caniuse-lite@1.0.30001760: {}
+
   chalk@4.1.2:
     dependencies:
       ansi-styles: 4.3.0
@@ -3993,18 +3995,6 @@ snapshots:
       color-name: 1.1.4
 
   color-name@1.1.4: {}
-
-  color-string@1.9.1:
-    dependencies:
-      color-name: 1.1.4
-      simple-swizzle: 0.2.2
-    optional: true
-
-  color@4.2.3:
-    dependencies:
-      color-convert: 2.0.1
-      color-string: 1.9.1
-    optional: true
 
   concat-map@0.0.1: {}
 
@@ -4061,6 +4051,8 @@ snapshots:
       object-keys: 1.1.1
 
   detect-libc@2.0.4: {}
+
+  detect-libc@2.1.2: {}
 
   detect-node-es@1.1.0: {}
 
@@ -4440,6 +4432,9 @@ snapshots:
 
   fraction.js@4.3.7: {}
 
+  fsevents@2.3.2:
+    optional: true
+
   function-bind@1.1.2: {}
 
   function.prototype.name@1.1.8:
@@ -4549,9 +4544,6 @@ snapshots:
       call-bound: 1.0.4
       get-intrinsic: 1.3.0
 
-  is-arrayish@0.3.2:
-    optional: true
-
   is-async-function@2.1.1:
     dependencies:
       async-function: 1.0.0
@@ -4571,7 +4563,7 @@ snapshots:
 
   is-bun-module@2.0.0:
     dependencies:
-      semver: 7.7.2
+      semver: 7.7.3
 
   is-callable@1.2.7: {}
 
@@ -4749,7 +4741,7 @@ snapshots:
 
   lightningcss@1.32.0:
     dependencies:
-      detect-libc: 2.0.4
+      detect-libc: 2.1.2
     optionalDependencies:
       lightningcss-android-arm64: 1.32.0
       lightningcss-darwin-arm64: 1.32.0
@@ -4924,6 +4916,14 @@ snapshots:
 
   picomatch@4.0.3: {}
 
+  playwright-core@1.59.1: {}
+
+  playwright@1.59.1:
+    dependencies:
+      playwright-core: 1.59.1
+    optionalDependencies:
+      fsevents: 2.3.2
+
   possible-typed-array-names@1.1.0: {}
 
   postcss-value-parser@4.2.0: {}
@@ -5055,7 +5055,7 @@ snapshots:
 
   semver@6.3.1: {}
 
-  semver@7.7.2: {}
+  semver@7.7.3: {}
 
   set-function-length@1.2.2:
     dependencies:
@@ -5079,11 +5079,11 @@ snapshots:
       es-errors: 1.3.0
       es-object-atoms: 1.1.1
 
-  sharp@0.34.3:
+  sharp@0.34.5:
     dependencies:
-      color: 4.2.3
-      detect-libc: 2.0.4
-      semver: 7.7.2
+      '@img/colour': 1.0.0
+      detect-libc: 2.1.2
+      semver: 7.7.3
     optionalDependencies:
       '@img/sharp-darwin-arm64': 0.34.3
       '@img/sharp-darwin-x64': 0.34.3
@@ -5142,11 +5142,6 @@ snapshots:
       side-channel-list: 1.0.0
       side-channel-map: 1.0.1
       side-channel-weakmap: 1.0.2
-
-  simple-swizzle@0.2.2:
-    dependencies:
-      is-arrayish: 0.3.2
-    optional: true
 
   sonner@2.0.7(react-dom@19.1.1(react@19.1.1))(react@19.1.1):
     dependencies:
