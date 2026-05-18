@@ -36,6 +36,18 @@ interface TypstEditorProps {
   triggerReload: () => void;
 }
 
+const BASIC_RESUME_IMPORT_PATTERN = /#import\s+"@preview\/basic-resume:[^"]+"/;
+
+const normalizeBasicResumeSource = (source: string) => {
+  if (!BASIC_RESUME_IMPORT_PATTERN.test(source)) {
+    return source;
+  }
+
+  return source
+    .replace(/(#let\s+[A-Za-z_][\w-]*\s*=\s*")https?:\/\/([^"]*)"/gi, '$1$2"')
+    .replace(/(url\s*:\s*")https?:\/\/([^"]*)"/gi, '$1$2"');
+};
+
 export default function TypstEditor({
   projectId,
   user,
@@ -131,6 +143,7 @@ export default function TypstEditor({
 
   const compileTypst = useCallback(
     async (source: string) => {
+      const sourceForCompile = normalizeBasicResumeSource(source);
       if (!source) {
         setPreview(null);
         setIsCompiling(false);
@@ -143,7 +156,7 @@ export default function TypstEditor({
 
       try {
         // Use async compilation for user edits to keep UI responsive
-        const pdf = await compileAsync(source);
+        const pdf = await compileAsync(sourceForCompile);
         setPreview(pdf);
       } catch (err) {
         console.error("Compilation failed:", err);
@@ -235,7 +248,7 @@ export default function TypstEditor({
         }
 
         setIsCompiling(true);
-        compileAsync(contentRef.current)
+        compileAsync(normalizeBasicResumeSource(contentRef.current))
           .then((pdf) => {
             setPreview(pdf);
           })
@@ -311,7 +324,9 @@ export default function TypstEditor({
         }
         if (typstInstance) {
           try {
-            pdfContent = await compileAsync(contentRef.current);
+            pdfContent = await compileAsync(
+              normalizeBasicResumeSource(contentRef.current)
+            );
           } catch (compileError) {
             console.error("Compilation failed during save:", compileError);
             pdfContent = null;
@@ -351,7 +366,9 @@ export default function TypstEditor({
     if (!typstInstance) return;
 
     try {
-      const data = await compileAsync(contentRef.current);
+      const data = await compileAsync(
+        normalizeBasicResumeSource(contentRef.current)
+      );
       const blob = new Blob([data as unknown as BlobPart], {
         type: "application/pdf",
       });
