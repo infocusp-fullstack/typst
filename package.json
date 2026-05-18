@@ -38,7 +38,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.525.0",
-    "next": "15.5.10",
+    "next": "15.5.18",
     "pdfjs-dist": "^5.4.54",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -55,8 +55,13 @@
     "autoprefixer": "^10.4.21",
     "eslint": "^9.39",
     "eslint-config-next": "15.5.10",
-    "postcss": "^8.5.6",
+    "postcss": "^8.5.14",
     "prettier": "^3.6.2",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "postcss": "^8.5.14"
+    }
   }
 }
