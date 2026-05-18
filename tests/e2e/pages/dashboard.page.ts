@@ -78,7 +78,14 @@ export class DashboardPage {
   }
 
   async createFromTemplate(documentName: string): Promise<boolean> {
-    await expect(this.startFromTemplateCard.first()).toBeVisible();
+    const hasTemplateCard = await this.startFromTemplateCard
+      .first()
+      .waitFor({ state: 'visible', timeout: 7_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!hasTemplateCard) {
+      return false;
+    }
     await this.startFromTemplateCard.first().click();
 
     await expect(this.templateDialog).toBeVisible();

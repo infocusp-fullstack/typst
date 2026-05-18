@@ -73,7 +73,7 @@ export class EditorPage {
     await this.editorTextBox.click();
     await this.page.keyboard.press('Control+A');
     await this.page.keyboard.insertText(
-      `= ${title}\n\nThis document was updated by Playwright E2E.\n`,
+      `${title}`,
     );
   }
 
@@ -245,6 +245,16 @@ export class EditorPage {
       return this.previewFrame.screenshot({ animations: 'disabled' });
     }
     return this.previewCanvas.screenshot({ animations: 'disabled' });
+  }
+
+  async getPreviewLinkHrefs() {
+    return this.page
+      .locator('.preview-container a[href]')
+      .evaluateAll((links) =>
+        links
+          .map((link) => link.getAttribute('href') ?? '')
+          .filter((href) => href.length > 0),
+      );
   }
 
   async goBackToDashboard() {
