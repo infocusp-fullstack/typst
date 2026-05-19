@@ -31,131 +31,182 @@ const PreviewPane = memo(function PreviewPane({
 }: PreviewPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  const scaleRef = useRef(scale);
+  const pixelRatioRef = useRef(1);
+  const renderGenerationRef = useRef(0);
+  const renderTasksRef = useRef<ReturnType<pdfjsLib.PDFPageProxy["render"]>[]>(
+    [],
+  );
 
-  const renderAllPages = useCallback(async () => {
-    const pdfDoc = pdfDocRef.current;
-    const container = containerRef.current;
-    if (!pdfDoc || !container) return;
-
-    try {
-      container.innerHTML = "";
-
-      for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-        const page = await pdfDoc.getPage(pageNum);
-
-        // ✅ use devicePixelRatio for crisp rendering, capped at 3x for performance
-        const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
-        const viewportScale = scale * pixelRatio;
-        const viewport = page.getViewport({
-          scale: viewportScale,
-          dontFlip: false,
-        });
-
-        // page container in CSS pixels
-        const cssWidth = viewport.width / pixelRatio;
-        const cssHeight = viewport.height / pixelRatio;
-
-        const pageContainer = document.createElement("div");
-        pageContainer.style.position = "relative";
-        pageContainer.style.display = "block";
-        pageContainer.style.marginLeft = "auto";
-        pageContainer.style.marginRight = "auto";
-        pageContainer.style.marginBottom = "1rem";
-        pageContainer.style.width = `${cssWidth}px`;
-        pageContainer.style.height = `${cssHeight}px`;
-
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d", {
-          alpha: false,
-          desynchronized: true,
-          willReadFrequently: false,
-        });
-        if (!context) continue;
-
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.style.width = `${cssWidth}px`;
-        canvas.style.height = `${cssHeight}px`;
-        canvas.style.display = "block";
-
-        // Optimize canvas context for best quality
-        context.imageSmoothingEnabled = true;
-        context.imageSmoothingQuality = "high";
-        context.globalCompositeOperation = "source-over";
-
-        // Clear canvas before rendering
-        context.clearRect(0, 0, canvas.width, canvas.height);
-
-        await page.render({
-          canvasContext: context,
-          viewport,
-          canvas,
-        }).promise;
-
-        pageContainer.appendChild(canvas);
-
-        // Page number overlay
-        const pageNumberElement = document.createElement("div");
-        pageNumberElement.textContent = `${pageNum}`;
-        pageNumberElement.style.position = "absolute";
-        pageNumberElement.style.bottom = "12px";
-        pageNumberElement.style.right = "12px";
-        pageNumberElement.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
-        pageNumberElement.style.color = "white";
-        pageNumberElement.style.padding = "4px 8px";
-        pageNumberElement.style.borderRadius = "4px";
-        pageNumberElement.style.fontSize = "10px";
-        pageNumberElement.style.fontWeight = "500";
-        pageNumberElement.style.zIndex = "5";
-        pageNumberElement.style.border = "1px solid hsl(var(--border))";
-        pageNumberElement.style.boxShadow = "0 1px 2px rgba(0, 0, 0, 0.1)";
-        pageContainer.appendChild(pageNumberElement);
-
-        try {
-          const annotations = await page.getAnnotations({ intent: "display" });
-
-          annotations.forEach((annotation) => {
-            if (annotation.subtype === "Link" && annotation.url) {
-              const rect = pdfjsLib.Util.normalizeRect(annotation.rect);
-              const viewportRect = viewport.convertToViewportRectangle(rect);
-              const [x1, y1, x2, y2] = viewportRect;
-
-              const linkElement = document.createElement("a");
-              linkElement.href = annotation.url;
-              linkElement.target = "_blank";
-              linkElement.rel = "noopener noreferrer";
-
-              // Position overlay (divide by pixelRatio since CSS uses CSS pixels)
-              linkElement.style.position = "absolute";
-              linkElement.style.left = `${Math.min(x1, x2) / pixelRatio}px`;
-              linkElement.style.top = `${Math.min(y1, y2) / pixelRatio}px`;
-              linkElement.style.width = `${Math.abs(x2 - x1) / pixelRatio}px`;
-              linkElement.style.height = `${Math.abs(y2 - y1) / pixelRatio}px`;
-
-              linkElement.style.cursor = "pointer";
-              linkElement.style.zIndex = "10";
-              linkElement.style.backgroundColor = "transparent"; // invisible but clickable
-
-              pageContainer.appendChild(linkElement);
-            }
-          });
-        } catch (annotationError) {
-          console.warn(
-            `Failed to get annotations for page ${pageNum}:`,
-            annotationError,
-          );
-        }
-
-        container.appendChild(pageContainer);
+  const cancelRenderTasks = useCallback(() => {
+    renderTasksRef.current.forEach((task) => {
+      try {
+        task.cancel();
+      } catch {
+        // Ignore tasks that already finished or were already cancelled.
       }
-    } catch (error) {
-      console.error("Error rendering PDF pages:", error);
-    }
+    });
+    renderTasksRef.current = [];
+  }, []);
+
+  useEffect(() => {
+    scaleRef.current = scale;
   }, [scale]);
+
+  const renderAllPages = useCallback(
+    async (renderScale: number) => {
+      const renderGeneration = renderGenerationRef.current + 1;
+      renderGenerationRef.current = renderGeneration;
+      cancelRenderTasks();
+
+      const pdfDoc = pdfDocRef.current;
+      const container = containerRef.current;
+      if (!pdfDoc || !container) return;
+
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
+      pixelRatioRef.current = pixelRatio;
+
+      try {
+        container.replaceChildren();
+
+        for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+          if (renderGeneration !== renderGenerationRef.current) return;
+
+          const page = await pdfDoc.getPage(pageNum);
+          if (renderGeneration !== renderGenerationRef.current) return;
+
+          const viewport = page.getViewport({
+            scale: renderScale,
+            dontFlip: false,
+          });
+          const cssWidth = viewport.width;
+          const cssHeight = viewport.height;
+
+          const pageContainer = document.createElement("div");
+          pageContainer.style.position = "relative";
+          pageContainer.style.display = "block";
+          pageContainer.style.marginLeft = "auto";
+          pageContainer.style.marginRight = "auto";
+          pageContainer.style.marginBottom = "1rem";
+          pageContainer.style.width = `${cssWidth}px`;
+          pageContainer.style.height = `${cssHeight}px`;
+
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d", {
+            alpha: false,
+            desynchronized: true,
+            willReadFrequently: false,
+          });
+          if (!context) continue;
+
+          canvas.width = Math.ceil(cssWidth * pixelRatio);
+          canvas.height = Math.ceil(cssHeight * pixelRatio);
+          canvas.style.width = `${cssWidth}px`;
+          canvas.style.height = `${cssHeight}px`;
+          canvas.style.display = "block";
+
+          // Optimize canvas context for best quality
+          context.imageSmoothingEnabled = true;
+          context.imageSmoothingQuality = "high";
+          context.globalCompositeOperation = "source-over";
+
+          // Clear canvas before rendering
+          context.clearRect(0, 0, canvas.width, canvas.height);
+
+          const renderTask = page.render({
+            canvasContext: context,
+            viewport,
+            canvas,
+            transform:
+              pixelRatio === 1
+                ? undefined
+                : [pixelRatio, 0, 0, pixelRatio, 0, 0],
+          });
+          renderTasksRef.current.push(renderTask);
+
+          await renderTask.promise;
+          renderTasksRef.current = renderTasksRef.current.filter(
+            (task) => task !== renderTask,
+          );
+
+          if (renderGeneration !== renderGenerationRef.current) return;
+
+          pageContainer.appendChild(canvas);
+
+          // Page number overlay
+          const pageNumberElement = document.createElement("div");
+          pageNumberElement.textContent = `${pageNum}`;
+          pageNumberElement.style.position = "absolute";
+          pageNumberElement.style.bottom = "12px";
+          pageNumberElement.style.right = "12px";
+          pageNumberElement.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+          pageNumberElement.style.color = "white";
+          pageNumberElement.style.padding = "4px 8px";
+          pageNumberElement.style.borderRadius = "4px";
+          pageNumberElement.style.fontSize = "10px";
+          pageNumberElement.style.fontWeight = "500";
+          pageNumberElement.style.zIndex = "5";
+          pageNumberElement.style.border = "1px solid hsl(var(--border))";
+          pageNumberElement.style.boxShadow = "0 1px 2px rgba(0, 0, 0, 0.1)";
+          pageContainer.appendChild(pageNumberElement);
+
+          try {
+            const annotations = await page.getAnnotations({
+              intent: "display",
+            });
+
+            annotations.forEach((annotation) => {
+              if (annotation.subtype === "Link" && annotation.url) {
+                const rect = pdfjsLib.Util.normalizeRect(annotation.rect);
+                const viewportRect = viewport.convertToViewportRectangle(rect);
+                const [x1, y1, x2, y2] = viewportRect;
+
+                const linkElement = document.createElement("a");
+                linkElement.href = annotation.url;
+                linkElement.target = "_blank";
+                linkElement.rel = "noopener noreferrer";
+
+                linkElement.style.position = "absolute";
+                linkElement.style.left = `${Math.min(x1, x2)}px`;
+                linkElement.style.top = `${Math.min(y1, y2)}px`;
+                linkElement.style.width = `${Math.abs(x2 - x1)}px`;
+                linkElement.style.height = `${Math.abs(y2 - y1)}px`;
+
+                linkElement.style.cursor = "pointer";
+                linkElement.style.zIndex = "10";
+                linkElement.style.backgroundColor = "transparent"; // invisible but clickable
+
+                pageContainer.appendChild(linkElement);
+              }
+            });
+          } catch (annotationError) {
+            console.warn(
+              `Failed to get annotations for page ${pageNum}:`,
+              annotationError,
+            );
+          }
+
+          if (renderGeneration !== renderGenerationRef.current) return;
+
+          container.appendChild(pageContainer);
+        }
+      } catch (error) {
+        if (
+          !(error instanceof Error) ||
+          error.name !== "RenderingCancelledException"
+        ) {
+          console.error("Error rendering PDF pages:", error);
+        }
+      }
+    },
+    [cancelRenderTasks],
+  );
 
   // Load PDF when content changes
   useEffect(() => {
     let isMounted = true;
+    renderGenerationRef.current += 1;
+    cancelRenderTasks();
 
     if (content instanceof Uint8Array) {
       (async () => {
@@ -174,7 +225,7 @@ const PreviewPane = memo(function PreviewPane({
 
           pdfDocRef.current = pdf;
           onTotalPagesChange(pdf.numPages);
-          await renderAllPages();
+          await renderAllPages(scaleRef.current);
         } catch (error) {
           console.error("Error loading PDF:", error);
           if (isMounted) {
@@ -196,6 +247,8 @@ const PreviewPane = memo(function PreviewPane({
 
     return () => {
       isMounted = false;
+      renderGenerationRef.current += 1;
+      cancelRenderTasks();
       if (pdfDocRef.current) {
         try {
           pdfDocRef.current.destroy();
@@ -205,7 +258,28 @@ const PreviewPane = memo(function PreviewPane({
         pdfDocRef.current = null;
       }
     };
-  }, [content, renderAllPages, onTotalPagesChange]);
+  }, [cancelRenderTasks, content, onTotalPagesChange, renderAllPages]);
+
+  useEffect(() => {
+    if (content instanceof Uint8Array && pdfDocRef.current) {
+      void renderAllPages(scale);
+    }
+  }, [content, renderAllPages, scale]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const nextPixelRatio = Math.min(window.devicePixelRatio || 1, 3);
+      if (nextPixelRatio === pixelRatioRef.current) return;
+
+      pixelRatioRef.current = nextPixelRatio;
+      if (content instanceof Uint8Array && pdfDocRef.current) {
+        void renderAllPages(scaleRef.current);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [content, renderAllPages]);
 
   // ---------------- UI States ----------------
   if (isCompiling) {
@@ -283,15 +357,7 @@ const PreviewPane = memo(function PreviewPane({
 
       <div className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]">
         <div className="flex justify-center pb-8 pt-4">
-          <div
-            ref={containerRef}
-            style={{
-              transform: `scale(${scale})`,
-              transformOrigin: "top center",
-              width: `${100 / scale}%`,
-              transition: "transform 0.25s ease-in-out",
-            }}
-          />
+          <div ref={containerRef} />
         </div>
       </div>
     </div>
