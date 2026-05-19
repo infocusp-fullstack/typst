@@ -43,11 +43,17 @@ const PreviewPane = memo(function PreviewPane({
       for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
         const page = await pdfDoc.getPage(pageNum);
 
-        const highDpiScale = 2;
+        // ✅ use devicePixelRatio for crisp rendering, capped at 3x for performance
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
+        const viewportScale = scale * pixelRatio;
         const viewport = page.getViewport({
-          scale: highDpiScale,
+          scale: viewportScale,
           dontFlip: false,
         });
+
+        // page container in CSS pixels
+        const cssWidth = viewport.width / pixelRatio;
+        const cssHeight = viewport.height / pixelRatio;
 
         const pageContainer = document.createElement("div");
         pageContainer.style.position = "relative";
@@ -55,13 +61,8 @@ const PreviewPane = memo(function PreviewPane({
         pageContainer.style.marginLeft = "auto";
         pageContainer.style.marginRight = "auto";
         pageContainer.style.marginBottom = "1rem";
-        pageContainer.style.width = `${viewport.width / 2}px`;
-        pageContainer.style.height = `${viewport.height / 2}px`;
-        pageContainer.style.transformOrigin = "top center";
-        pageContainer.style.transform = `scale(${scale})`;
-        pageContainer.style.transition =
-          "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)";
-        pageContainer.style.willChange = "transform";
+        pageContainer.style.width = `${cssWidth}px`;
+        pageContainer.style.height = `${cssHeight}px`;
 
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d", {
@@ -73,9 +74,9 @@ const PreviewPane = memo(function PreviewPane({
 
         canvas.width = viewport.width;
         canvas.height = viewport.height;
-        canvas.style.width = `${viewport.width / 2}px`;
-        canvas.style.height = `${viewport.height / 2}px`;
-        canvas.style.imageRendering = "crisp-edges";
+        canvas.style.width = `${cssWidth}px`;
+        canvas.style.height = `${cssHeight}px`;
+        canvas.style.display = "block";
 
         // Optimize canvas context for best quality
         context.imageSmoothingEnabled = true;
@@ -124,12 +125,12 @@ const PreviewPane = memo(function PreviewPane({
               linkElement.target = "_blank";
               linkElement.rel = "noopener noreferrer";
 
-              // Position overlay
+              // Position overlay (divide by pixelRatio since CSS uses CSS pixels)
               linkElement.style.position = "absolute";
-              linkElement.style.left = `${Math.min(x1, x2) / 2}px`;
-              linkElement.style.top = `${Math.min(y1, y2) / 2}px`;
-              linkElement.style.width = `${Math.abs(x2 - x1) / 2}px`;
-              linkElement.style.height = `${Math.abs(y2 - y1) / 2}px`;
+              linkElement.style.left = `${Math.min(x1, x2) / pixelRatio}px`;
+              linkElement.style.top = `${Math.min(y1, y2) / pixelRatio}px`;
+              linkElement.style.width = `${Math.abs(x2 - x1) / pixelRatio}px`;
+              linkElement.style.height = `${Math.abs(y2 - y1) / pixelRatio}px`;
 
               linkElement.style.cursor = "pointer";
               linkElement.style.zIndex = "10";
@@ -141,7 +142,7 @@ const PreviewPane = memo(function PreviewPane({
         } catch (annotationError) {
           console.warn(
             `Failed to get annotations for page ${pageNum}:`,
-            annotationError
+            annotationError,
           );
         }
 
@@ -150,7 +151,7 @@ const PreviewPane = memo(function PreviewPane({
     } catch (error) {
       console.error("Error rendering PDF pages:", error);
     }
-  }, []);
+  }, [scale]);
 
   // Load PDF when content changes
   useEffect(() => {
@@ -225,7 +226,7 @@ const PreviewPane = memo(function PreviewPane({
       </div>
     );
   }
-  
+
   if (isTypstLoading || isCompiling) {
     return <div className="h-full w-full" />;
   }
@@ -280,19 +281,19 @@ const PreviewPane = memo(function PreviewPane({
         </Button>
       </div>
 
-<div className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]">
-  <div className="flex justify-center pb-8 pt-4">
-    <div
-      ref={containerRef}
-      style={{
-        transform: `scale(${scale})`,
-        transformOrigin: "top center",
-        width: `${100 / scale}%`,
-        transition: "transform 0.25s ease-in-out",
-      }}
-    />
-  </div>
-</div>
+      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]">
+        <div className="flex justify-center pb-8 pt-4">
+          <div
+            ref={containerRef}
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: "top center",
+              width: `${100 / scale}%`,
+              transition: "transform 0.25s ease-in-out",
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 });
