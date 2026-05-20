@@ -30,6 +30,7 @@ const PreviewPane = memo(function PreviewPane({
   isTypstLoading = false,
 }: PreviewPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
   const scaleRef = useRef(scale);
   const pixelRatioRef = useRef(1);
@@ -54,7 +55,12 @@ const PreviewPane = memo(function PreviewPane({
   }, [scale]);
 
   const renderAllPages = useCallback(
-    async (renderScale: number) => {
+    async (
+      renderScale: number,
+      options: {
+        preserveScroll?: boolean;
+      } = {},
+    ) => {
       const renderGeneration = renderGenerationRef.current + 1;
       renderGenerationRef.current = renderGeneration;
       cancelRenderTasks();
@@ -62,6 +68,32 @@ const PreviewPane = memo(function PreviewPane({
       const pdfDoc = pdfDocRef.current;
       const container = containerRef.current;
       if (!pdfDoc || !container) return;
+      const scrollContainer = scrollContainerRef.current;
+
+      const shouldPreserveScroll = options.preserveScroll && scrollContainer;
+      const prevMaxScrollTop = shouldPreserveScroll
+        ? Math.max(
+            0,
+            (scrollContainer as HTMLDivElement).scrollHeight -
+              (scrollContainer as HTMLDivElement).clientHeight,
+          )
+        : 0;
+      const prevMaxScrollLeft = shouldPreserveScroll
+        ? Math.max(
+            0,
+            (scrollContainer as HTMLDivElement).scrollWidth -
+              (scrollContainer as HTMLDivElement).clientWidth,
+          )
+        : 0;
+      const prevScrollRatioTop =
+        shouldPreserveScroll && prevMaxScrollTop > 0
+          ? (scrollContainer as HTMLDivElement).scrollTop / prevMaxScrollTop
+          : 0;
+      const prevScrollRatioLeft =
+        shouldPreserveScroll && prevMaxScrollLeft > 0
+          ? (scrollContainer as HTMLDivElement).scrollLeft / prevMaxScrollLeft
+          : 0;
+      const hadHorizontalScroll = shouldPreserveScroll && prevMaxScrollLeft > 0;
 
       const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
       pixelRatioRef.current = pixelRatio;
@@ -190,6 +222,28 @@ const PreviewPane = memo(function PreviewPane({
 
           container.appendChild(pageContainer);
         }
+
+        if (shouldPreserveScroll && scrollContainerRef.current) {
+          requestAnimationFrame(() => {
+            const activeScrollContainer = scrollContainerRef.current;
+            if (!activeScrollContainer) return;
+
+            const nextMaxScrollTop = Math.max(
+              0,
+              activeScrollContainer.scrollHeight -
+                activeScrollContainer.clientHeight,
+            );
+            const nextMaxScrollLeft = Math.max(
+              0,
+              activeScrollContainer.scrollWidth - activeScrollContainer.clientWidth,
+            );
+
+            activeScrollContainer.scrollTop = prevScrollRatioTop * nextMaxScrollTop;
+            activeScrollContainer.scrollLeft = hadHorizontalScroll
+              ? prevScrollRatioLeft * nextMaxScrollLeft
+              : nextMaxScrollLeft / 2;
+          });
+        }
       } catch (error) {
         if (
           !(error instanceof Error) ||
@@ -262,7 +316,7 @@ const PreviewPane = memo(function PreviewPane({
 
   useEffect(() => {
     if (content instanceof Uint8Array && pdfDocRef.current) {
-      void renderAllPages(scale);
+      void renderAllPages(scale, { preserveScroll: true });
     }
   }, [content, renderAllPages, scale]);
 
@@ -273,7 +327,7 @@ const PreviewPane = memo(function PreviewPane({
 
       pixelRatioRef.current = nextPixelRatio;
       if (content instanceof Uint8Array && pdfDocRef.current) {
-        void renderAllPages(scaleRef.current);
+        void renderAllPages(scaleRef.current, { preserveScroll: true });
       }
     };
 
@@ -355,9 +409,16 @@ const PreviewPane = memo(function PreviewPane({
         </Button>
       </div>
 
-      <div className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]"
+      >
         <div className="flex justify-center pb-8 pt-4">
-          <div ref={containerRef} />
+          <div ref={containerRef} style={{
+              transformOrigin: "top center",
+              width: `${150 / scale}%`,
+              transition: "transform 0.25s ease-in-out",
+            }} />
         </div>
       </div>
     </div>
