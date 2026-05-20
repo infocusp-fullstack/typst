@@ -421,7 +421,7 @@ const PreviewPane = memo(function PreviewPane({
         className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]"
       >
         <div className="flex justify-center pb-8 pt-4">
-          <div ref={containerRef} style={{ transformOrigin: "top center" }} />
+          <div ref={containerRef} style={{ transformOrigin: "top center", width: `${100 / scale}%` }} />
         </div>
       </div>
     </div>
