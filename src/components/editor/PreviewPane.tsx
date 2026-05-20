@@ -30,131 +30,237 @@ const PreviewPane = memo(function PreviewPane({
   isTypstLoading = false,
 }: PreviewPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  const scaleRef = useRef(scale);
+  const pixelRatioRef = useRef(1);
+  const renderGenerationRef = useRef(0);
+  const renderTasksRef = useRef<ReturnType<pdfjsLib.PDFPageProxy["render"]>[]>(
+    [],
+  );
 
-  const renderAllPages = useCallback(async () => {
-    const pdfDoc = pdfDocRef.current;
-    const container = containerRef.current;
-    if (!pdfDoc || !container) return;
+  const cancelRenderTasks = useCallback(() => {
+    renderTasksRef.current.forEach((task) => {
+      try {
+        task.cancel();
+      } catch {
+        // Ignore tasks that already finished or were already cancelled.
+      }
+    });
+    renderTasksRef.current = [];
+  }, []);
 
-    try {
-      container.innerHTML = "";
+  useEffect(() => {
+    scaleRef.current = scale;
+  }, [scale]);
 
-      for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-        const page = await pdfDoc.getPage(pageNum);
+  const renderAllPages = useCallback(
+    async (
+      renderScale: number,
+      options: {
+        preserveScroll?: boolean;
+      } = {},
+    ) => {
+      const renderGeneration = renderGenerationRef.current + 1;
+      renderGenerationRef.current = renderGeneration;
+      cancelRenderTasks();
 
-        const highDpiScale = 2;
-        const viewport = page.getViewport({
-          scale: highDpiScale,
-          dontFlip: false,
-        });
+      const pdfDoc = pdfDocRef.current;
+      const container = containerRef.current;
+      if (!pdfDoc || !container) return;
+      const scrollContainer = scrollContainerRef.current;
 
-        const pageContainer = document.createElement("div");
-        pageContainer.style.position = "relative";
-        pageContainer.style.display = "block";
-        pageContainer.style.marginLeft = "auto";
-        pageContainer.style.marginRight = "auto";
-        pageContainer.style.marginBottom = "1rem";
-        pageContainer.style.width = `${viewport.width / 2}px`;
-        pageContainer.style.height = `${viewport.height / 2}px`;
-        pageContainer.style.transformOrigin = "top center";
-        pageContainer.style.transform = `scale(${scale})`;
-        pageContainer.style.transition =
-          "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)";
-        pageContainer.style.willChange = "transform";
+      const shouldPreserveScroll = options.preserveScroll && scrollContainer;
+      const prevMaxScrollTop = shouldPreserveScroll
+        ? Math.max(
+            0,
+            (scrollContainer as HTMLDivElement).scrollHeight -
+              (scrollContainer as HTMLDivElement).clientHeight,
+          )
+        : 0;
+      const prevMaxScrollLeft = shouldPreserveScroll
+        ? Math.max(
+            0,
+            (scrollContainer as HTMLDivElement).scrollWidth -
+              (scrollContainer as HTMLDivElement).clientWidth,
+          )
+        : 0;
+      const prevScrollRatioTop =
+        shouldPreserveScroll && prevMaxScrollTop > 0
+          ? (scrollContainer as HTMLDivElement).scrollTop / prevMaxScrollTop
+          : 0;
+      const prevScrollRatioLeft =
+        shouldPreserveScroll && prevMaxScrollLeft > 0
+          ? (scrollContainer as HTMLDivElement).scrollLeft / prevMaxScrollLeft
+          : 0;
+      const hadHorizontalScroll = shouldPreserveScroll && prevMaxScrollLeft > 0;
 
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d", {
-          alpha: false,
-          desynchronized: true,
-          willReadFrequently: false,
-        });
-        if (!context) continue;
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 3);
+      pixelRatioRef.current = pixelRatio;
 
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
-        canvas.style.width = `${viewport.width / 2}px`;
-        canvas.style.height = `${viewport.height / 2}px`;
-        canvas.style.imageRendering = "crisp-edges";
+      try {
+        container.replaceChildren();
 
-        // Optimize canvas context for best quality
-        context.imageSmoothingEnabled = true;
-        context.imageSmoothingQuality = "high";
-        context.globalCompositeOperation = "source-over";
+        for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+          if (renderGeneration !== renderGenerationRef.current) return;
 
-        // Clear canvas before rendering
-        context.clearRect(0, 0, canvas.width, canvas.height);
+          const page = await pdfDoc.getPage(pageNum);
+          if (renderGeneration !== renderGenerationRef.current) return;
 
-        await page.render({
-          canvasContext: context,
-          viewport,
-          canvas,
-        }).promise;
-
-        pageContainer.appendChild(canvas);
-
-        // Page number overlay
-        const pageNumberElement = document.createElement("div");
-        pageNumberElement.textContent = `${pageNum}`;
-        pageNumberElement.style.position = "absolute";
-        pageNumberElement.style.bottom = "12px";
-        pageNumberElement.style.right = "12px";
-        pageNumberElement.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
-        pageNumberElement.style.color = "white";
-        pageNumberElement.style.padding = "4px 8px";
-        pageNumberElement.style.borderRadius = "4px";
-        pageNumberElement.style.fontSize = "10px";
-        pageNumberElement.style.fontWeight = "500";
-        pageNumberElement.style.zIndex = "5";
-        pageNumberElement.style.border = "1px solid hsl(var(--border))";
-        pageNumberElement.style.boxShadow = "0 1px 2px rgba(0, 0, 0, 0.1)";
-        pageContainer.appendChild(pageNumberElement);
-
-        try {
-          const annotations = await page.getAnnotations({ intent: "display" });
-
-          annotations.forEach((annotation) => {
-            if (annotation.subtype === "Link" && annotation.url) {
-              const rect = pdfjsLib.Util.normalizeRect(annotation.rect);
-              const viewportRect = viewport.convertToViewportRectangle(rect);
-              const [x1, y1, x2, y2] = viewportRect;
-
-              const linkElement = document.createElement("a");
-              linkElement.href = annotation.url;
-              linkElement.target = "_blank";
-              linkElement.rel = "noopener noreferrer";
-
-              // Position overlay
-              linkElement.style.position = "absolute";
-              linkElement.style.left = `${Math.min(x1, x2) / 2}px`;
-              linkElement.style.top = `${Math.min(y1, y2) / 2}px`;
-              linkElement.style.width = `${Math.abs(x2 - x1) / 2}px`;
-              linkElement.style.height = `${Math.abs(y2 - y1) / 2}px`;
-
-              linkElement.style.cursor = "pointer";
-              linkElement.style.zIndex = "10";
-              linkElement.style.backgroundColor = "transparent"; // invisible but clickable
-
-              pageContainer.appendChild(linkElement);
-            }
+          const viewport = page.getViewport({
+            scale: renderScale,
+            dontFlip: false,
           });
-        } catch (annotationError) {
-          console.warn(
-            `Failed to get annotations for page ${pageNum}:`,
-            annotationError
+          const cssWidth = viewport.width;
+          const cssHeight = viewport.height;
+
+          const pageContainer = document.createElement("div");
+          pageContainer.style.position = "relative";
+          pageContainer.style.display = "block";
+          pageContainer.style.marginLeft = "auto";
+          pageContainer.style.marginRight = "auto";
+          pageContainer.style.marginBottom = "1rem";
+          pageContainer.style.width = `${cssWidth}px`;
+          pageContainer.style.height = `${cssHeight}px`;
+
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d", {
+            alpha: false,
+            desynchronized: true,
+            willReadFrequently: false,
+          });
+          if (!context) continue;
+
+          canvas.width = Math.ceil(cssWidth * pixelRatio);
+          canvas.height = Math.ceil(cssHeight * pixelRatio);
+          canvas.style.width = `${cssWidth}px`;
+          canvas.style.height = `${cssHeight}px`;
+          canvas.style.display = "block";
+
+          // Optimize canvas context for best quality
+          context.imageSmoothingEnabled = true;
+          context.imageSmoothingQuality = "high";
+          context.globalCompositeOperation = "source-over";
+
+          // Clear canvas before rendering
+          context.clearRect(0, 0, canvas.width, canvas.height);
+
+          const renderTask = page.render({
+            canvasContext: context,
+            viewport,
+            canvas,
+            transform:
+              pixelRatio === 1
+                ? undefined
+                : [pixelRatio, 0, 0, pixelRatio, 0, 0],
+          });
+          renderTasksRef.current.push(renderTask);
+
+          await renderTask.promise;
+          renderTasksRef.current = renderTasksRef.current.filter(
+            (task) => task !== renderTask,
           );
+
+          if (renderGeneration !== renderGenerationRef.current) return;
+
+          pageContainer.appendChild(canvas);
+
+          // Page number overlay
+          const pageNumberElement = document.createElement("div");
+          pageNumberElement.textContent = `${pageNum}`;
+          pageNumberElement.style.position = "absolute";
+          pageNumberElement.style.bottom = "12px";
+          pageNumberElement.style.right = "12px";
+          pageNumberElement.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+          pageNumberElement.style.color = "white";
+          pageNumberElement.style.padding = "4px 8px";
+          pageNumberElement.style.borderRadius = "4px";
+          pageNumberElement.style.fontSize = "10px";
+          pageNumberElement.style.fontWeight = "500";
+          pageNumberElement.style.zIndex = "5";
+          pageNumberElement.style.border = "1px solid hsl(var(--border))";
+          pageNumberElement.style.boxShadow = "0 1px 2px rgba(0, 0, 0, 0.1)";
+          pageContainer.appendChild(pageNumberElement);
+
+          try {
+            const annotations = await page.getAnnotations({
+              intent: "display",
+            });
+
+            annotations.forEach((annotation) => {
+              if (annotation.subtype === "Link" && annotation.url) {
+                const rect = pdfjsLib.Util.normalizeRect(annotation.rect);
+                const viewportRect = viewport.convertToViewportRectangle(rect);
+                const [x1, y1, x2, y2] = viewportRect;
+
+                const linkElement = document.createElement("a");
+                linkElement.href = annotation.url;
+                linkElement.target = "_blank";
+                linkElement.rel = "noopener noreferrer";
+
+                linkElement.style.position = "absolute";
+                linkElement.style.left = `${Math.min(x1, x2)}px`;
+                linkElement.style.top = `${Math.min(y1, y2)}px`;
+                linkElement.style.width = `${Math.abs(x2 - x1)}px`;
+                linkElement.style.height = `${Math.abs(y2 - y1)}px`;
+
+                linkElement.style.cursor = "pointer";
+                linkElement.style.zIndex = "10";
+                linkElement.style.backgroundColor = "transparent"; // invisible but clickable
+
+                pageContainer.appendChild(linkElement);
+              }
+            });
+          } catch (annotationError) {
+            console.warn(
+              `Failed to get annotations for page ${pageNum}:`,
+              annotationError,
+            );
+          }
+
+          if (renderGeneration !== renderGenerationRef.current) return;
+
+          container.appendChild(pageContainer);
         }
 
-        container.appendChild(pageContainer);
+        if (shouldPreserveScroll && scrollContainerRef.current) {
+          requestAnimationFrame(() => {
+            const activeScrollContainer = scrollContainerRef.current;
+            if (!activeScrollContainer) return;
+
+            const nextMaxScrollTop = Math.max(
+              0,
+              activeScrollContainer.scrollHeight -
+                activeScrollContainer.clientHeight,
+            );
+            const nextMaxScrollLeft = Math.max(
+              0,
+              activeScrollContainer.scrollWidth - activeScrollContainer.clientWidth,
+            );
+
+            activeScrollContainer.scrollTop = prevScrollRatioTop * nextMaxScrollTop;
+            activeScrollContainer.scrollLeft = hadHorizontalScroll
+              ? prevScrollRatioLeft * nextMaxScrollLeft
+              : nextMaxScrollLeft / 2;
+          });
+        }
+      } catch (error) {
+        if (
+          !(error instanceof Error) ||
+          error.name !== "RenderingCancelledException"
+        ) {
+          console.error("Error rendering PDF pages:", error);
+        }
       }
-    } catch (error) {
-      console.error("Error rendering PDF pages:", error);
-    }
-  }, []);
+    },
+    [cancelRenderTasks],
+  );
 
   // Load PDF when content changes
   useEffect(() => {
     let isMounted = true;
+    renderGenerationRef.current += 1;
+    cancelRenderTasks();
 
     if (content instanceof Uint8Array) {
       (async () => {
@@ -173,7 +279,7 @@ const PreviewPane = memo(function PreviewPane({
 
           pdfDocRef.current = pdf;
           onTotalPagesChange(pdf.numPages);
-          await renderAllPages();
+          await renderAllPages(scaleRef.current);
         } catch (error) {
           console.error("Error loading PDF:", error);
           if (isMounted) {
@@ -195,6 +301,8 @@ const PreviewPane = memo(function PreviewPane({
 
     return () => {
       isMounted = false;
+      renderGenerationRef.current += 1;
+      cancelRenderTasks();
       if (pdfDocRef.current) {
         try {
           pdfDocRef.current.destroy();
@@ -204,7 +312,28 @@ const PreviewPane = memo(function PreviewPane({
         pdfDocRef.current = null;
       }
     };
-  }, [content, renderAllPages, onTotalPagesChange]);
+  }, [cancelRenderTasks, content, onTotalPagesChange, renderAllPages]);
+
+  useEffect(() => {
+    if (content instanceof Uint8Array && pdfDocRef.current) {
+      void renderAllPages(scale, { preserveScroll: true });
+    }
+  }, [content, renderAllPages, scale]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const nextPixelRatio = Math.min(window.devicePixelRatio || 1, 3);
+      if (nextPixelRatio === pixelRatioRef.current) return;
+
+      pixelRatioRef.current = nextPixelRatio;
+      if (content instanceof Uint8Array && pdfDocRef.current) {
+        void renderAllPages(scaleRef.current, { preserveScroll: true });
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [content, renderAllPages]);
 
   // ---------------- UI States ----------------
   if (isCompiling) {
@@ -225,7 +354,7 @@ const PreviewPane = memo(function PreviewPane({
       </div>
     );
   }
-  
+
   if (isTypstLoading || isCompiling) {
     return <div className="h-full w-full" />;
   }
@@ -280,19 +409,18 @@ const PreviewPane = memo(function PreviewPane({
         </Button>
       </div>
 
-<div className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]">
-  <div className="flex justify-center pb-8 pt-4">
-    <div
-      ref={containerRef}
-      style={{
-        transform: `scale(${scale})`,
-        transformOrigin: "top center",
-        width: `${100 / scale}%`,
-        transition: "transform 0.25s ease-in-out",
-      }}
-    />
-  </div>
-</div>
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]"
+      >
+        <div className="flex justify-center pb-8 pt-4">
+          <div ref={containerRef} style={{
+              transformOrigin: "top center",
+              width: `${150 / scale}%`,
+              transition: "transform 0.25s ease-in-out",
+            }} />
+        </div>
+      </div>
     </div>
   );
 });

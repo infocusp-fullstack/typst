@@ -9,6 +9,14 @@
 #let phone = "+1 (xxx) xxx-xxxx"
 #let personal-site = "stuxf.dev"
 
+// The template prepends "https://" to these fields, so strip any user-typed
+// scheme to avoid producing "https://https://..." links.
+#let strip-scheme(s) = {
+  if s.starts-with("https://") { s.slice(8) }
+  else if s.starts-with("http://") { s.slice(7) }
+  else { s }
+}
+
 #show: resume.with(
   author: name,
   // All the lines below are optional.
@@ -16,10 +24,10 @@
   // feel free to comment those lines out and they will not show.
   location: location,
   email: email,
-  github: github,
-  linkedin: linkedin,
+  github: strip-scheme(github),
+  linkedin: strip-scheme(linkedin),
   phone: phone,
-  personal-site: personal-site,
+  personal-site: strip-scheme(personal-site),
   accent-color: "#26428b",
   font: "New Computer Modern",
   paper: "us-letter",
