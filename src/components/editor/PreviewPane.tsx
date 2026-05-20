@@ -73,17 +73,17 @@ const PreviewPane = memo(function PreviewPane({
       const shouldPreserveScroll = options.preserveScroll && scrollContainer;
       const prevMaxScrollTop = shouldPreserveScroll
         ? Math.max(
-            0,
-            (scrollContainer as HTMLDivElement).scrollHeight -
-              (scrollContainer as HTMLDivElement).clientHeight,
-          )
+          0,
+          (scrollContainer as HTMLDivElement).scrollHeight -
+          (scrollContainer as HTMLDivElement).clientHeight,
+        )
         : 0;
       const prevMaxScrollLeft = shouldPreserveScroll
         ? Math.max(
-            0,
-            (scrollContainer as HTMLDivElement).scrollWidth -
-              (scrollContainer as HTMLDivElement).clientWidth,
-          )
+          0,
+          (scrollContainer as HTMLDivElement).scrollWidth -
+          (scrollContainer as HTMLDivElement).clientWidth,
+        )
         : 0;
       const prevScrollRatioTop =
         shouldPreserveScroll && prevMaxScrollTop > 0
@@ -107,6 +107,11 @@ const PreviewPane = memo(function PreviewPane({
           const page = await pdfDoc.getPage(pageNum);
           if (renderGeneration !== renderGenerationRef.current) return;
 
+          const qualityBoost = 2
+          const renderViewport = page.getViewport({
+            scale: renderScale * qualityBoost,
+            dontFlip: false,
+          });
           const viewport = page.getViewport({
             scale: renderScale,
             dontFlip: false,
@@ -131,8 +136,8 @@ const PreviewPane = memo(function PreviewPane({
           });
           if (!context) continue;
 
-          canvas.width = Math.ceil(cssWidth * pixelRatio);
-          canvas.height = Math.ceil(cssHeight * pixelRatio);
+          canvas.width = Math.ceil(renderViewport.width * pixelRatio);
+          canvas.height = Math.ceil(renderViewport.height * pixelRatio);
           canvas.style.width = `${cssWidth}px`;
           canvas.style.height = `${cssHeight}px`;
           canvas.style.display = "block";
@@ -147,7 +152,7 @@ const PreviewPane = memo(function PreviewPane({
 
           const renderTask = page.render({
             canvasContext: context,
-            viewport,
+            viewport: renderViewport,
             canvas,
             transform:
               pixelRatio === 1
@@ -190,7 +195,9 @@ const PreviewPane = memo(function PreviewPane({
             annotations.forEach((annotation) => {
               if (annotation.subtype === "Link" && annotation.url) {
                 const rect = pdfjsLib.Util.normalizeRect(annotation.rect);
-                const viewportRect = viewport.convertToViewportRectangle(rect);
+                const viewportRect = renderViewport.convertToViewportRectangle(
+                  rect,
+                ).map((value) => value / qualityBoost);
                 const [x1, y1, x2, y2] = viewportRect;
 
                 const linkElement = document.createElement("a");
@@ -231,7 +238,7 @@ const PreviewPane = memo(function PreviewPane({
             const nextMaxScrollTop = Math.max(
               0,
               activeScrollContainer.scrollHeight -
-                activeScrollContainer.clientHeight,
+              activeScrollContainer.clientHeight,
             );
             const nextMaxScrollLeft = Math.max(
               0,
@@ -414,11 +421,7 @@ const PreviewPane = memo(function PreviewPane({
         className="flex-1 overflow-auto bg-gray-100 dark:bg-[#272822]"
       >
         <div className="flex justify-center pb-8 pt-4">
-          <div ref={containerRef} style={{
-              transformOrigin: "top center",
-              width: `${150 / scale}%`,
-              transition: "transform 0.25s ease-in-out",
-            }} />
+          <div ref={containerRef} style={{ transformOrigin: "top center" }} />
         </div>
       </div>
     </div>
