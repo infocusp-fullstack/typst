@@ -144,7 +144,7 @@ begin
 end;
 $$;
 
-ccreate or replace function search_resumes_own(
+create or replace function search_resumes_own(
   search_query text,
   curr_user uuid,
   page int,

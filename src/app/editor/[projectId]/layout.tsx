@@ -1,4 +1,4 @@
-import { fetchUserProjectById } from "@/lib/projectService";
+import { getAdminClient } from "@/lib/supabaseServer";
 
 export async function generateMetadata({
   params,
@@ -10,10 +10,19 @@ export async function generateMetadata({
   const DEFAULT_DESCRIPTION = "A modern document editor with real-time preview";
 
   try {
-    const project = await fetchUserProjectById(projectId);
+    const supabase = await getAdminClient();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("title")
+      .eq("id", projectId)
+      .maybeSingle();
 
-    const projectTitle = project?.title
-      ? `${project.title} - ${DEFAULT_TITLE}`
+    if (error) {
+      throw new Error(`Failed to fetch project: ${error.message}`);
+    }
+
+    const projectTitle = data?.title
+      ? `${data.title} - ${DEFAULT_TITLE}`
       : DEFAULT_TITLE;
 
     return {
