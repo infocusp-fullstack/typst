@@ -422,6 +422,7 @@ export default function TypstEditor({
   const didInitRef = useRef(false);
   const [hasCompiledInitial, setHasCompiledInitial] = useState(false);
   const [isContentLoaded, setIsContentLoaded] = useState(false);
+  const isSavingRef = useRef(false);
 
   const canSave = contentRef.current.trim() !== "";
   const hasCurrentCompileErrors =
@@ -657,8 +658,17 @@ export default function TypstEditor({
 
   const handleSave = useCallback(
     async (forceSave: boolean = false) => {
-      if (!typPath || !contentRef.current || !canEdit || !hasChanges) return;
+      if (
+        isSavingRef.current ||
+        !typPath ||
+        !contentRef.current ||
+        !canEdit ||
+        !hasChanges
+      ) {
+        return;
+      }
 
+      isSavingRef.current = true;
       try {
         setIsSaving(true);
 
@@ -675,7 +685,6 @@ export default function TypstEditor({
               onCustomClick: triggerReload,
             });
             if (!ok) {
-              setIsSaving(false);
               return;
             }
           }
@@ -709,6 +718,7 @@ export default function TypstEditor({
       } catch {
         showToast.error("Failed to save.");
       } finally {
+        isSavingRef.current = false;
         setIsSaving(false);
       }
     },
