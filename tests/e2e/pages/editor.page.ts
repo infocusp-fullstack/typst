@@ -1,0 +1,271 @@
+import { expect, type Locator, type Page } from '@playwright/test';
+
+export class EditorPage {
+  readonly page: Page;
+  readonly shareButton: Locator;
+  readonly saveButton: Locator;
+  readonly exportPdfButton: Locator;
+  readonly backButton: Locator;
+  readonly unsavedIndicator: Locator;
+  readonly savedIndicator: Locator;
+  readonly editorContent: Locator;
+  readonly editorTextBox: Locator;
+  readonly previewFrame: Locator;
+  readonly previewCanvas: Locator;
+  readonly overrideDialog: Locator;
+  readonly overrideConfirmButton: Locator;
+  readonly discardAndLeaveButton: Locator;
+
+  constructor(page: Page) {
+    this.page = page;
+    this.shareButton = page.getByRole('button', { name: /^Share$/ });
+    this.saveButton = page.getByRole('button', { name: /^Save$/ });
+    this.exportPdfButton = page.getByRole('button', { name: /export pdf/i });
+    this.backButton = page
+      .locator('button:has(svg.lucide-arrow-left)')
+      .first();
+    this.unsavedIndicator = page.getByText('● Unsaved');
+    this.savedIndicator = page.locator('span').filter({ hasText: /^Saved / });
+    this.editorContent = page.locator('.cm-content').first();
+    this.editorTextBox = page.getByRole('textbox').first();
+    this.previewFrame = page.locator('iframe[title="PDF Preview"]');
+    this.previewCanvas = page.locator('.preview-container canvas').first();
+    this.overrideDialog = page.getByRole('dialog').filter({
+      hasText: /are you sure you want to override/i,
+    });
+    this.overrideConfirmButton = page.getByRole('button', { name: 'Override' });
+    this.discardAndLeaveButton = page.getByRole('button', {
+      name: 'Discard & Leave',
+    });
+  }
+
+  async expectLoaded() {
+    await expect(this.page).toHaveURL(/\/editor\/[0-9a-f-]+$/i, {
+      timeout: 60_000,
+    });
+  }
+
+  async openShareDialog() {
+    await expect(this.shareButton).toBeVisible({ timeout: 30_000 });
+    await this.shareButton.click();
+  }
+
+  async appendToDocument(text: string) {
+    await expect(this.editorTextBox).toBeVisible({ timeout: 30_000 });
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await this.editorTextBox.click();
+      await this.page.keyboard.press('Control+End').catch(() => undefined);
+      await this.page.keyboard.insertText(`\n${text} ${attempt}`);
+
+      const canSave = await this.saveButton.isEnabled().catch(() => false);
+      if (canSave) {
+        return;
+      }
+
+      await this.page.waitForTimeout(500);
+    }
+
+    throw new Error('Unable to make editor content dirty for save.');
+  }
+
+  async replaceWithValidTypst(title: string) {
+    await expect(this.editorTextBox).toBeVisible({ timeout: 30_000 });
+    await this.editorTextBox.click();
+    await this.page.keyboard.press('Control+A');
+    await this.page.keyboard.insertText(
+      `${title}`,
+    );
+  }
+
+  async replaceWithContent(content: string) {
+    await expect(this.editorTextBox).toBeVisible({ timeout: 30_000 });
+    const firstNonEmptyLine =
+      content
+        .split('\n')
+        .map((line) => line.trim())
+        .find((line) => line.length > 0) ?? content.slice(0, 30);
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await this.editorTextBox.click();
+      await this.page.keyboard.press('ControlOrMeta+A');
+      await this.page.keyboard.press('Backspace');
+      await this.page.keyboard.insertText(content);
+
+      const applied = await this.editorContent
+        .innerText()
+        .then((text) => text.includes(firstNonEmptyLine))
+        .catch(() => false);
+      if (applied) {
+        return;
+      }
+
+      await this.page.waitForTimeout(500);
+    }
+
+    throw new Error('Unable to replace editor content with provided Typst text.');
+  }
+
+  async saveChanges(): Promise<boolean> {
+    await expect(this.saveButton).toBeEnabled({ timeout: 15_000 });
+    await this.saveButton.click();
+
+    const overrideRequested = await this.overrideDialog
+      .waitFor({ state: 'visible', timeout: 2_500 })
+      .then(() => true)
+      .catch(() => false);
+    if (overrideRequested) {
+      await this.overrideConfirmButton.click();
+    }
+
+    return expect
+      .poll(async () => {
+        const isSaveDisabled = await this.saveButton.isDisabled();
+        const unsavedVisible = await this.unsavedIndicator
+          .isVisible()
+          .catch(() => false);
+        const savedVisible = await this.savedIndicator
+          .isVisible()
+          .catch(() => false);
+        return isSaveDisabled || (!unsavedVisible && savedVisible);
+      }, { timeout: 30_000 })
+      .toBe(true)
+      .then(() => true)
+      .catch(() => false);
+  }
+
+  async isExportEnabled(timeout = 20_000): Promise<boolean> {
+    return this.exportPdfButton
+      .waitFor({ state: 'visible', timeout })
+      .then(async () => {
+        await expect(this.exportPdfButton).toBeEnabled({ timeout });
+        return true;
+      })
+      .catch(() => false);
+  }
+
+  async expectPreviewVisible() {
+    const iframeVisible = await this.previewFrame
+      .isVisible()
+      .catch(() => false);
+    if (iframeVisible) {
+      await expect(this.previewFrame).toBeVisible({ timeout: 60_000 });
+      return;
+    }
+
+    await expect(this.previewCanvas).toBeVisible({ timeout: 60_000 });
+  }
+
+  async waitForPreviewRender() {
+    await this.expectPreviewVisible();
+    const iframeVisible = await this.previewFrame
+      .isVisible()
+      .catch(() => false);
+
+    if (iframeVisible) {
+      await expect(this.previewFrame).toHaveAttribute('src', /blob:/, {
+        timeout: 60_000,
+      });
+      await this.previewFrame.evaluate((frame) => {
+        if (!(frame instanceof HTMLIFrameElement)) return Promise.resolve();
+        return new Promise<void>((resolve) => {
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          frame.addEventListener('load', done, { once: true });
+          setTimeout(done, 5_000);
+        });
+      });
+      await expect
+        .poll(async () => (await this.previewFrame.boundingBox())?.height ?? 0, {
+          timeout: 10_000,
+        })
+        .toBeGreaterThan(0);
+      return;
+    }
+
+    await expect
+      .poll(
+        async () => {
+          const box = await this.previewCanvas.boundingBox();
+          return box?.height ?? 0;
+        },
+        { timeout: 30_000 },
+      )
+      .toBeGreaterThan(0);
+  }
+
+  async getPreviewRenderSignature(): Promise<string> {
+    const iframeVisible = await this.previewFrame
+      .isVisible()
+      .catch(() => false);
+    if (iframeVisible) {
+      return this.previewFrame
+        .getAttribute('src')
+        .then((src) => src ?? '')
+        .catch(() => '');
+    }
+
+    return this.previewCanvas
+      .evaluate((canvas) => {
+        if (!(canvas instanceof HTMLCanvasElement)) return '';
+        // Sampling a small data URL prefix keeps this fast while still detecting new renders.
+        return `${canvas.width}x${canvas.height}:${canvas
+          .toDataURL('image/png')
+          .slice(0, 256)}`;
+      })
+      .catch(() => '');
+  }
+
+  async waitForPreviewUpdate(previousSignature: string) {
+    await this.waitForPreviewRender();
+    if (!previousSignature) {
+      return;
+    }
+
+    await expect
+      .poll(async () => this.getPreviewRenderSignature(), { timeout: 45_000 })
+      .not.toBe(previousSignature);
+  }
+
+  async exportPdfAndWaitForDownload() {
+    const downloadPromise = this.page.waitForEvent('download');
+    await expect(this.exportPdfButton).toBeEnabled({ timeout: 30_000 });
+    await this.exportPdfButton.click();
+    await downloadPromise;
+  }
+
+  async takePreviewScreenshot() {
+    const iframeVisible = await this.previewFrame
+      .isVisible()
+      .catch(() => false);
+    if (iframeVisible) {
+      return this.previewFrame.screenshot({ animations: 'disabled' });
+    }
+    return this.previewCanvas.screenshot({ animations: 'disabled' });
+  }
+
+  async getPreviewLinkHrefs() {
+    return this.page
+      .locator('.preview-container a[href]')
+      .evaluateAll((links) =>
+        links
+          .map((link) => link.getAttribute('href') ?? '')
+          .filter((href) => href.length > 0),
+      );
+  }
+
+  async goBackToDashboard() {
+    await this.backButton.click();
+    const needsDiscardConfirm = await this.discardAndLeaveButton
+      .waitFor({ state: 'visible', timeout: 2_500 })
+      .then(() => true)
+      .catch(() => false);
+    if (needsDiscardConfirm) {
+      await this.discardAndLeaveButton.click();
+    }
+    await expect(this.page).toHaveURL(/\/dashboard/, { timeout: 30_000 });
+  }
+}

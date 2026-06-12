@@ -25,6 +25,12 @@ export function TypstProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const typstRef = useRef<any>(null); // eslint-disable-line @typescript-eslint/no-explicit-any
 
+  const createTempTypPath = () => {
+    const random = Math.random().toString(36).slice(2, 10);
+    const stamp = Date.now().toString(36);
+    return `/tmp/editor-${stamp}-${random}.typ`;
+  };
+
   const compileAsync = useCallback(
     async (source: string): Promise<Uint8Array> => {
       if (!typstRef.current) {
@@ -42,50 +48,82 @@ export function TypstProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
+      const diagnosticsContainError = (value: unknown): boolean => {
+        if (!value) return false;
+        if (typeof value === "string") {
+          return /(^|\W)error(\W|$)/i.test(value);
+        }
+        if (Array.isArray(value)) {
+          return value.some((item) => diagnosticsContainError(item));
+        }
+        if (typeof value === "object") {
+          const record = value as Record<string, unknown>;
+          if (typeof record.severity === "string" && /error/i.test(record.severity)) {
+            return true;
+          }
+          return Object.values(record).some((item) => diagnosticsContainError(item));
+        }
+        return false;
+      };
+
+      const getDetailedCompileError = async (initialError: unknown) => {
+        const mainFilePath = createTempTypPath();
+        await typstRef.current.addSource(mainFilePath, source);
+        try {
+          const compiler = await typstRef.current.getCompiler();
+          const compiled = await compiler.compile({
+            mainFilePath,
+            format: "pdf",
+            diagnostics: "unix",
+          });
+          if (compiled?.diagnostics && diagnosticsContainError(compiled.diagnostics)) {
+            throw compiled.diagnostics;
+          }
+          throw initialError;
+        } catch (detailedError) {
+          throw detailedError;
+        } finally {
+          try {
+            await typstRef.current.unmapShadow(mainFilePath);
+          } catch {
+            // no-op cleanup failure
+          }
+        }
+      };
+
+      const compilePdf = async () => {
+        try {
+          const pdf = await typstRef.current.pdf({ mainContent: source });
+          return pdf as Uint8Array;
+        } catch (initialError) {
+          return getDetailedCompileError(initialError);
+        }
+      };
+
       // Use requestIdleCallback for non-blocking compilation
       if (typeof requestIdleCallback !== "undefined") {
         return new Promise((resolve, reject) => {
           requestIdleCallback(
             async (deadline) => {
-              try {
-                if (deadline.timeRemaining() > 50) {
-                  const pdf = await typstRef.current.pdf({
-                    mainContent: source,
-                  });
-                  resolve(pdf);
-                } else {
-                  // Not enough time, use setTimeout
-                  setTimeout(async () => {
-                    try {
-                      const pdf = await typstRef.current.pdf({
-                        mainContent: source,
-                      });
-                      resolve(pdf);
-                    } catch (err) {
-                      reject(err);
-                    }
-                  }, 100);
-                }
-              } catch (err) {
-                reject(err);
+              if (deadline.timeRemaining() > 50) {
+                compilePdf().then(resolve).catch(reject);
+              } else {
+                setTimeout(() => {
+                  compilePdf().then(resolve).catch(reject);
+                }, 100);
               }
             },
             { timeout: 5000 }
           );
         });
-      } else {
-        // Fallback for browsers without requestIdleCallback
-        return new Promise((resolve, reject) => {
-          setTimeout(async () => {
-            try {
-              const pdf = await typstRef.current.pdf({ mainContent: source });
-              resolve(pdf);
-            } catch (err) {
-              reject(err);
-            }
-          }, 50);
-        });
       }
+
+      // Fallback for browsers without requestIdleCallback
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          compilePdf().then(resolve).catch(reject);
+        }, 50);
+      });
     },
     []
   );

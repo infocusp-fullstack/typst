@@ -130,7 +130,11 @@ const ProjectList = React.memo(
                           Resume
                         </Badge>
                       )}
+
                     </div>
+                    {/* {project.snippets?.map((s, i) => (
+                      <div key={i} dangerouslySetInnerHTML={{ __html: s }} />
+                    ))} */}
                   </div>
                 </div>
               </Link>
