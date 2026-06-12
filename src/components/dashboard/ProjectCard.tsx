@@ -144,7 +144,7 @@ const ProjectCard = React.memo(
                               Open
                             </Link>
                           </DropdownMenuItem>
-                          {isOwner && (
+                          {(isOwner || isCXO ) && (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.preventDefault();
