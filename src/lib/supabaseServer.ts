@@ -1,6 +1,7 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database";
 
 // Get Supabase URL
 const getSupabaseUrl = () => {
@@ -23,7 +24,7 @@ const getServiceRoleKey = () => {
 };
 
 // Create single admin client for all operations
-let adminClient: ReturnType<typeof createClient> | null = null;
+let adminClient : SupabaseClient<Database> | null = null;
 
 export const getAdminClient = async () => {
   if (adminClient) return adminClient;
