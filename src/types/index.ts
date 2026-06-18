@@ -54,3 +54,5 @@ export type FilterType = "owned" | "shared" | "all";
 
 // Type for PDF content
 export type PDFContent = Uint8Array;
+
+

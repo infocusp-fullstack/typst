@@ -50,3 +50,5 @@ node_modules/
 tests/.auth/
 /user-data/
 /pw-user/
+
+supabase/

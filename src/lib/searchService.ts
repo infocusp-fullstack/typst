@@ -56,33 +56,37 @@ export async function search_resumes(
   totalCount: number;
 }> {
   const supabase = getAdminClient();
-  let rpcName: string;
-  const params: Record<string, string|number> = {
-    search_query: searchQuery,
-    page,
-    page_size: pageSize,
-  };
+  let response;
 
   if (filter === "owned") {
-    rpcName = "search_resumes_own";
-    params.curr_user = userId;
-  }
-  else if (filter === "shared") {
-    rpcName = "search_resumes_shared";
-    params.curr_user = userId;
-  }
-  else if (filter === "all") {
+    response = await supabase.rpc("search_resumes_own", {
+      curr_user: userId,
+      page,
+      page_size: pageSize,
+      search_query: searchQuery,
+    });
+  } else if (filter === "shared") {
+    response = await supabase.rpc("search_resumes_shared", {
+      curr_user: userId,
+      page,
+      page_size: pageSize,
+      search_query: searchQuery,
+    });
+  } else if (filter === "all") {
     const isCXO = await isCXOUser(userId);
     if (!isCXO) {
       throw new Error("Access denied: CXO privileges required");
     }
-    params.page_size = pageSize
-    rpcName = "search_resumes"; // global search
-  }
-  else {
+    response = await supabase.rpc("search_resumes", {
+      page,
+      page_size: pageSize,
+      search_query: searchQuery,
+    });
+  } else {
     throw new Error("Invalid filter type");
   }
-  const { data, error } = await supabase.rpc(rpcName, params);
+
+  const { data, error } = response;
 
   if (error) {
     console.error("Search resumes error:", error);
