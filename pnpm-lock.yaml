@@ -33,8 +33,8 @@ importers:
         specifier: ^1.2.1
         version: 1.2.1
       '@myriaddreamin/typst-all-in-one.ts':
-        specifier: 0.6.1-rc1
-        version: 0.6.1-rc1
+        specifier: 0.7.0
+        version: 0.7.0
       '@radix-ui/react-alert-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.1.7(@types/react@19.1.9))(@types/react@19.1.9)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
@@ -480,8 +480,8 @@ packages:
   '@marijn/find-cluster-break@1.0.2':
     resolution: {integrity: sha512-l0h88YhZFyKdXIFNfSWpyjStDjGHwZ/U7iobcK1cQQD8sejsONdQtTVU+1wVN1PBw40PiiHB1vA5S7VTfQiP9g==}
 
-  '@myriaddreamin/typst-all-in-one.ts@0.6.1-rc1':
-    resolution: {integrity: sha512-qwA0cVzadEXDt3K7jV1UVZbpUas4xJhaPqUB3/cR4v7lFEKRNsH0BX6mNM/wYDcunly+3r3n0StpYEcOuRb0Yg==}
+  '@myriaddreamin/typst-all-in-one.ts@0.7.0':
+    resolution: {integrity: sha512-TmtmCjZLPsA84FoJecd19Z6x5ICtD0Sly8LXFYul+lJ2nRwTPf9AwDRjkrlT1VJhIm2XyEpPB0FiV8ZvUkxQ1Q==}
 
   '@napi-rs/canvas-android-arm64@0.1.76':
     resolution: {integrity: sha512-7EAfkLBQo2QoEzpHdInFbfEUYTXsiO2hvtFo1D9zfTzcQM8n5piZdOpJ3EIkmpe8yLoSV8HLyUQtq4bv11x6Tg==}
@@ -3146,7 +3146,7 @@ snapshots:
 
   '@marijn/find-cluster-break@1.0.2': {}
 
-  '@myriaddreamin/typst-all-in-one.ts@0.6.1-rc1': {}
+  '@myriaddreamin/typst-all-in-one.ts@0.7.0': {}
 
   '@napi-rs/canvas-android-arm64@0.1.76':
     optional: true
