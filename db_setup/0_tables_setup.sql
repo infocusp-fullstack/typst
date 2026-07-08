@@ -75,3 +75,23 @@ VALUES ('user-projects', 'user-projects', false);
 -- Public thumbnails bucket for globally accessible images
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('thumbnails', 'thumbnails', true);
+
+-- Review comments table for inline document comments
+CREATE TABLE review_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id UUID REFERENCES projects(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  start_line INTEGER NOT NULL,
+  start_column INTEGER NOT NULL DEFAULT 1,
+  end_line INTEGER,
+  end_column INTEGER,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+ALTER TABLE review_comments ENABLE ROW LEVEL SECURITY;
+
+-- Index for fast lookups by project
+CREATE INDEX idx_review_comments_project_id ON review_comments(project_id);
+CREATE INDEX idx_review_comments_user_id ON review_comments(user_id);

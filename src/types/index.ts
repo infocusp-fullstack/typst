@@ -54,3 +54,16 @@ export type FilterType = "owned" | "shared" | "all";
 
 // Type for PDF content
 export type PDFContent = Uint8Array;
+
+export type ReviewComment = {
+  id: string;
+  project_id: string;
+  user_id: string;
+  content: string;
+  start_line: number;
+  start_column: number;
+  end_line?: number;
+  end_column?: number;
+  created_at: string;
+  updated_at: string;
+};

@@ -12,6 +12,7 @@ import {
 import { useDebounce } from "@/hooks/useDebounce";
 import { Toolbar } from "@/components/editor/Toolbar";
 import dynamic from "next/dynamic";
+import CommentsSidebar from "@/components/editor/CommentsSidebar";
 const EditorPane = dynamic(() => import("@/components/editor/EditorPane"), {
   ssr: false,
 });
@@ -26,9 +27,10 @@ import {
   canViewProject,
   isCXOByEmail,
 } from "@/lib/sharingService";
-import { PDFContent } from "@/types";
+import { PDFContent, ReviewComment } from "@/types";
 import { useDialog } from "@/hooks/useDialog";
 import { showToast } from "@/lib/toast";
+import { commentService } from "@/lib/commentService";
 
 interface ParsedCompileError {
   diagnostics: EditorDiagnostic[];
@@ -384,7 +386,7 @@ export default function TypstEditor({
   user,
   triggerReload,
 }: TypstEditorProps) {
-  const { confirm } = useDialog();
+  const { confirm, prompt } = useDialog();
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const {
@@ -408,6 +410,12 @@ export default function TypstEditor({
   const [compileDiagnostics, setCompileDiagnostics] = useState<
     EditorDiagnostic[]
   >([]);
+  const [comments, setComments] = useState<ReviewComment[]>([]);
+  const [selectedRange, setSelectedRange] = useState<{
+    from: number;
+    to: number;
+  } | null>(null);
+  const [activeCommentId, setActiveCommentId] = useState<string | undefined>();
   const [lastValidatedSource, setLastValidatedSource] = useState("");
   const [scale, setScale] = useState(1.0);
   const [totalPages, setTotalPages] = useState(0);
@@ -545,12 +553,13 @@ export default function TypstEditor({
         const project = await fetchUserProjectById(projectId);
         if (!project) throw new Error("Project not found");
 
-        const [editPermission, viewPermission, iscxo, content] =
+        const [editPermission, viewPermission, iscxo, content, fetchedComments] =
           await Promise.all([
             canEditProject(projectId, user.id, project.user_id),
             canViewProject(projectId, user.id, project.user_id),
             isCXOByEmail(user.email),
             loadProjectFile(project.typ_path),
+            commentService.getComments(projectId).catch(() => []),
           ]);
 
         // Owner and permissions
@@ -573,6 +582,7 @@ export default function TypstEditor({
         setLastSaved(new Date(project.updated_at));
         setHasChanges(false);
         setIsContentLoaded(true);
+        setComments(fetchedComments);
       } catch {
         showToast.error("Failed to load project.");
         router.push("/dashboard");
@@ -655,6 +665,105 @@ export default function TypstEditor({
     }
     return false;
   };
+
+  const handleSelectionChange = useCallback(
+    (range: { from: number; to: number } | null) => {
+      setSelectedRange(range);
+    },
+    []
+  );
+
+  // Helper: convert 1-indexed line/column to character offset
+  const lineColumnToOffset = (line: number, col: number): number => {
+    const doc = contentRef.current;
+    const lines = doc.split("\n");
+    let offset = 0;
+    for (let i = 0; i < line - 1 && i < lines.length; i++) {
+      offset += lines[i].length + 1; // +1 for newline
+    }
+    return offset + col - 1;
+  };
+
+  const handleCommentClick = useCallback(
+    async (comment: ReviewComment) => {
+      // Scroll editor to comment location
+      const offset = lineColumnToOffset(comment.start_line, comment.start_column || 1);
+      // TODO: dispatch scroll event to EditorPane view
+
+      const action = await confirm({
+        title: `Comment • L${comment.start_line}`,
+        description: comment.content,
+        confirmText: "Delete",
+        cancelText: "Close",
+        destructive: true,
+      });
+      if (action) {
+        try {
+          await commentService.deleteComment(comment.id);
+          setComments((prev) => prev.filter((c) => c.id !== comment.id));
+          showToast.success("Comment deleted");
+        } catch {
+          showToast.error("Failed to delete comment");
+        }
+      }
+    },
+    []
+  );
+
+  const handleAddComment = useCallback(async () => {
+    if (!selectedRange) {
+      showToast.error("Select text to add a comment");
+      return;
+    }
+    const content = await prompt({
+      title: "Add Comment",
+      description: "Enter your comment:",
+      placeholder: "Your comment...",
+    });
+    if (!content) return;
+
+    // Convert character offsets to line/column (1-indexed)
+    const doc = contentRef.current;
+    const lines = doc.split("\n");
+    let charCount = 0;
+    let start_line = 1;
+    let start_column = 1;
+    let end_line = 1;
+    let end_column = 1;
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineLength = lines[i].length + (i < lines.length - 1 ? 1 : 0);
+      const lineStart = charCount;
+      const lineEnd = charCount + lineLength;
+
+      if (start_line === 1 && selectedRange.from >= lineStart && selectedRange.from <= lineEnd) {
+        start_column = selectedRange.from - lineStart + 1;
+        start_line = i + 1;
+      }
+      if (selectedRange.to >= lineStart && selectedRange.to <= lineEnd) {
+        end_column = selectedRange.to - lineStart + 1;
+        end_line = i + 1;
+      }
+
+      charCount = lineEnd;
+      if (charCount > selectedRange.to) break;
+    }
+
+    try {
+      const newComment = await commentService.addComment(projectId, {
+        project_id: projectId,
+        content,
+        start_line,
+        start_column,
+        end_line,
+        end_column,
+      });
+      setComments((prev) => [...prev, newComment]);
+      showToast.success("Comment added");
+    } catch (err) {
+      showToast.error("Failed to add comment");
+    }
+  }, [selectedRange, projectId]);
 
   const handleSave = useCallback(
     async (forceSave: boolean = false) => {
@@ -808,6 +917,7 @@ export default function TypstEditor({
         isOwner={isOwner}
         isBusy={isTypstLoading || !hasCompiledInitial || isCompiling}
         canSave={canSave}
+        onAddComment={handleAddComment}
       />
 
       <div className="flex-1 flex overflow-hidden split-container">
@@ -828,6 +938,9 @@ export default function TypstEditor({
             readOnly={!canEdit}
             canSave={canSave}
             diagnostics={compileDiagnostics}
+            comments={comments}
+            onCommentClick={canEdit ? handleCommentClick : undefined}
+            onSelectionChange={canEdit ? handleSelectionChange : undefined}
           />
         </div>
 
@@ -859,6 +972,16 @@ export default function TypstEditor({
           />
         </div>
       </div>
+
+        <CommentsSidebar
+          comments={comments}
+          onDelete={handleCommentClick}
+          onCommentClick={(comment) => {
+            setActiveCommentId(comment.id);
+            handleCommentClick(comment);
+          }}
+          activeCommentId={activeCommentId}
+        />
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { memo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, Download, Sun, Moon, Share2 } from "lucide-react";
+import { ArrowLeft, Save, Download, Sun, Moon, Share2, MessageSquarePlus } from "lucide-react";
 import dynamic from "next/dynamic";
 import { User } from "@supabase/supabase-js";
 import { TruncateWithTooltip } from "@/components/ui/TruncateWithTooltip";
@@ -33,6 +33,7 @@ export const Toolbar = memo(function Toolbar({
   isOwner,
   isBusy,
   canSave,
+  onAddComment,
 }: {
   projectTitle?: string;
   isSaving: boolean;
@@ -50,6 +51,7 @@ export const Toolbar = memo(function Toolbar({
   isOwner: boolean;
   isBusy?: boolean;
   canSave?: boolean;
+  onAddComment?: () => void;
 }) {
   const [shareModalOpen, setShareModalOpen] = useState(false);
 
@@ -122,6 +124,17 @@ export const Toolbar = memo(function Toolbar({
           >
             <Save className="mr-1 sm:mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Save</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onAddComment}
+            disabled={!canSave}
+            className="shrink-0"
+          >
+            <MessageSquarePlus className="mr-1 sm:mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Comment</span>
           </Button>
 
           <Button

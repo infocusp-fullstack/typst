@@ -124,3 +124,41 @@ ON templates
 FOR SELECT
 USING (auth.uid() IS NOT NULL AND is_active);
 
+------------ Review Comments -----------------
+CREATE POLICY "Users can insert review comments"
+ON review_comments
+FOR INSERT TO authenticated
+WITH CHECK (
+    user_id = auth.uid()
+    AND EXISTS (
+        SELECT 1 FROM projects p
+        WHERE p.id = review_comments.project_id
+        AND (
+            p.user_id = auth.uid()
+            OR EXISTS (SELECT 1 FROM project_shares ps WHERE ps.project_id = p.id AND ps.shared_with = auth.uid())
+            OR EXISTS (SELECT 1 FROM cxo_users cu WHERE cu.email = auth.email())
+        )
+    )
+);
+
+CREATE POLICY "Users can select review comments"
+ON review_comments
+FOR SELECT
+USING (
+    user_id = auth.uid()
+    OR EXISTS (
+        SELECT 1 FROM projects p
+        WHERE p.id = review_comments.project_id
+        AND (
+            p.user_id = auth.uid()
+            OR EXISTS (SELECT 1 FROM project_shares ps WHERE ps.project_id = p.id AND ps.shared_with = auth.uid())
+            OR EXISTS (SELECT 1 FROM cxo_users cu WHERE cu.email = auth.email())
+        )
+    )
+);
+
+CREATE POLICY "Users can delete their own review comments"
+ON review_comments
+FOR DELETE
+USING (user_id = auth.uid());
+
